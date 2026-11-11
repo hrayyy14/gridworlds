@@ -1,5 +1,6 @@
 #include "raylib.h"
 #include <iostream>
+#include <ctime>
 
 
 
@@ -7,6 +8,8 @@ int main() {
     const int cellSize {60};
     const int gridSize {10};
     const int screenSize { cellSize * gridSize };
+
+    SetRandomSeed(static_cast<unsigned int>(time(nullptr))); // random seed
 
     // AGENT
     int agentX {};
@@ -19,7 +22,7 @@ int main() {
     do {
         goalX = GetRandomValue(0, gridSize - 1) ;
         goalY = GetRandomValue(0, gridSize - 1) ;
-    } while (goalX != agentX && goalY != agentY);
+    } while (goalX == agentX && goalY == agentY);
 
     bool goalReached { false };
 
@@ -27,8 +30,6 @@ int main() {
     SetTargetFPS(60);
 
     while (!WindowShouldClose()) {
-        BeginDrawing();
-        ClearBackground(BLACK);
 
         if (IsKeyPressed(KEY_LEFT) && (agentX != 0)) {
             agentX += -1;
@@ -48,6 +49,9 @@ int main() {
             std::cout << "Goal Reached!\n";
             goalReached = true;
         }
+
+        BeginDrawing();
+        ClearBackground(BLACK);
 
         for (int i {}; i <= gridSize; ++i) {
             const int pos { i * cellSize };
