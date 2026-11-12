@@ -2,7 +2,7 @@
 #include <iostream>
 #include <ctime>
 
-void respawn(int& episodeCount, int& agentX, int& agentY, bool& goalReached, int& goalX, int& goalY, const int& gridSize, int& steps) {
+void respawn(int& episodeCount, int& agentX, int& agentY, int& goalX, int& goalY, const int& gridSize, int& steps) {
     ++episodeCount;
     agentX = 0;
     agentY = 0;
@@ -11,8 +11,6 @@ void respawn(int& episodeCount, int& agentX, int& agentY, bool& goalReached, int
         goalX = GetRandomValue(0, gridSize - 1) ;
         goalY = GetRandomValue(0, gridSize - 1) ;
     } while (goalX == agentX && goalY == agentY);
-
-    goalReached = false;
 
     std::cout << "Episode " << episodeCount << " completed in " << steps << " steps" << '\n';
 
@@ -42,8 +40,6 @@ int main() {
         goalY = GetRandomValue(0, gridSize - 1) ;
     } while (goalX == agentX && goalY == agentY);
 
-    bool goalReached { false };
-
     InitWindow(screenSize, screenSize, "GridWorld");
     SetTargetFPS(60);
 
@@ -67,10 +63,9 @@ int main() {
         }
 
         // detect when the agent reaches the goal 
-        if (agentX == goalX && agentY == goalY && !goalReached) {
+        if (agentX == goalX && agentY == goalY) {
             std::cout << "Goal Reached!\n";
-            goalReached = true;
-            respawn(episodeCount, agentX, agentY, goalReached, goalX, goalY, gridSize, steps);
+            respawn(episodeCount, agentX, agentY, goalX, goalY, gridSize, steps);
         }
 
         BeginDrawing();
