@@ -19,15 +19,20 @@ struct State {
     int goalY{};
 };
 
+void spawnGoal(State& state, const Game& game) {
+    // making sure the goal does not spawn on top of the agent
+    do {
+        state.goalX = GetRandomValue(0, game.gridSize - 1) ;
+        state.goalY = GetRandomValue(0, game.gridSize - 1) ;
+    } while (state.goalX == state.agentX && state.goalY == state.agentY);
+}
+
 void respawn(State& state, Game& game) {
     ++game.episodeCount;
     state.agentX = 0;
     state.agentY = 0;
 
-    do {
-        state.goalX = GetRandomValue(0, game.gridSize - 1) ;
-        state.goalY = GetRandomValue(0, game.gridSize - 1) ;
-    } while (state.goalX == state.agentX && state.goalY == state.agentY);
+    spawnGoal(state, game);
 
     std::cout << "Episode " << game.episodeCount << " completed in " << game.steps << " steps" << '\n';
 
@@ -42,11 +47,7 @@ int main() {
     Game game{};
     const int screenSize { game.cellSize * game.gridSize };
 
-    // making sure the goal does not spawn on top of the agent
-    do {
-        state.goalX = GetRandomValue(0, game.gridSize - 1) ;
-        state.goalY = GetRandomValue(0, game.gridSize - 1) ;
-    } while (state.goalX == state.agentX && state.goalY == state.agentY);
+    spawnGoal(state, game);
 
     InitWindow(screenSize, screenSize, "GridWorld");
     SetTargetFPS(60);
@@ -70,9 +71,7 @@ int main() {
             ++game.steps;
         }
 
-        // detect when the agent reaches the goal 
-        if (state.agentX == state.goalX && state.agentY == state.goalY) {
-            std::cout << "Goal Reached!\n";
+        if (state.goalX == state.agentX && state.goalY == state.agentY) {
             respawn(state, game);
         }
 
