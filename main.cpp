@@ -2,7 +2,7 @@
 #include <iostream>
 #include <ctime>
 
-void respawn(int& episodeCount, int& agentX, int& agentY, bool& goalReached, int& goalX, int& goalY, const int& gridSize) {
+void respawn(int& episodeCount, int& agentX, int& agentY, bool& goalReached, int& goalX, int& goalY, const int& gridSize, int& steps) {
     ++episodeCount;
     agentX = 0;
     agentY = 0;
@@ -13,7 +13,10 @@ void respawn(int& episodeCount, int& agentX, int& agentY, bool& goalReached, int
     } while (goalX == agentX && goalY == agentY);
 
     goalReached = false;
-    std::cout << "Episode completed: " << episodeCount << '\n';
+
+    std::cout << "Episode " << episodeCount << " completed in " << steps << " steps" << '\n';
+
+    steps = 0;
 }
 
 
@@ -21,7 +24,8 @@ int main() {
     const int cellSize {60};
     const int gridSize {10};
     const int screenSize { cellSize * gridSize };
-    int episodeCount {0};
+    int episodeCount {};
+    int steps {};
 
     SetRandomSeed(static_cast<unsigned int>(time(nullptr))); // random seed
 
@@ -47,22 +51,26 @@ int main() {
 
         if (IsKeyPressed(KEY_LEFT) && (agentX != 0)) {
             agentX += -1;
+            ++steps;
         }
         if (IsKeyPressed(KEY_RIGHT) && (agentX != (gridSize -1))) {
             agentX += 1;
+            ++steps;
         }
         if (IsKeyPressed(KEY_UP) && (agentY != 0)) {
             agentY += -1;
+            ++steps;
         }
         if (IsKeyPressed(KEY_DOWN) && (agentY != (gridSize - 1))) {
             agentY += 1;
+            ++steps;
         }
 
         // detect when the agent reaches the goal 
         if (agentX == goalX && agentY == goalY && !goalReached) {
             std::cout << "Goal Reached!\n";
             goalReached = true;
-            respawn(episodeCount, agentX, agentY, goalReached, goalX, goalY, gridSize);
+            respawn(episodeCount, agentX, agentY, goalReached, goalX, goalY, gridSize, steps);
         }
 
         BeginDrawing();
