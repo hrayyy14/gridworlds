@@ -2,12 +2,26 @@
 #include <iostream>
 #include <ctime>
 
+void respawn(int& episodeCount, int& agentX, int& agentY, bool& goalReached, int& goalX, int& goalY, const int& gridSize) {
+    ++episodeCount;
+    agentX = 0;
+    agentY = 0;
+
+    do {
+        goalX = GetRandomValue(0, gridSize - 1) ;
+        goalY = GetRandomValue(0, gridSize - 1) ;
+    } while (goalX == agentX && goalY == agentY);
+
+    goalReached = false;
+    std::cout << "Episode completed: " << episodeCount << '\n';
+}
 
 
 int main() {
     const int cellSize {60};
     const int gridSize {10};
     const int screenSize { cellSize * gridSize };
+    int episodeCount {0};
 
     SetRandomSeed(static_cast<unsigned int>(time(nullptr))); // random seed
 
@@ -48,6 +62,7 @@ int main() {
         if (agentX == goalX && agentY == goalY && !goalReached) {
             std::cout << "Goal Reached!\n";
             goalReached = true;
+            respawn(episodeCount, agentX, agentY, goalReached, goalX, goalY, gridSize);
         }
 
         BeginDrawing();
