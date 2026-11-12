@@ -2,31 +2,14 @@
 #include <iostream>
 #include <ctime>
 
-void respawn(int& episodeCount, int& agentX, int& agentY, int& goalX, int& goalY, const int& gridSize, int& steps) {
-    ++episodeCount;
-    agentX = 0;
-    agentY = 0;
-
-    do {
-        goalX = GetRandomValue(0, gridSize - 1) ;
-        goalY = GetRandomValue(0, gridSize - 1) ;
-    } while (goalX == agentX && goalY == agentY);
-
-    std::cout << "Episode " << episodeCount << " completed in " << steps << " steps" << '\n';
-
-    steps = 0;
-}
-
-
-int main() {
+struct Game {
     const int cellSize {60};
     const int gridSize {10};
-    const int screenSize { cellSize * gridSize };
     int episodeCount {};
     int steps {};
+};
 
-    SetRandomSeed(static_cast<unsigned int>(time(nullptr))); // random seed
-
+struct State {
     // AGENT
     int agentX {};
     int agentY {};
@@ -34,52 +17,77 @@ int main() {
     //GOAL
     int goalX{};
     int goalY{};
+};
+
+void respawn(State& state, Game& game) {
+    ++game.episodeCount;
+    state.agentX = 0;
+    state.agentY = 0;
+
+    do {
+        state.goalX = GetRandomValue(0, game.gridSize - 1) ;
+        state.goalY = GetRandomValue(0, game.gridSize - 1) ;
+    } while (state.goalX == state.agentX && state.goalY == state.agentY);
+
+    std::cout << "Episode " << game.episodeCount << " completed in " << game.steps << " steps" << '\n';
+
+    game.steps = 0;
+}
+
+
+int main() {
+    SetRandomSeed(static_cast<unsigned int>(time(nullptr))); // random seed
+
+    State state{};
+    Game game{};
+    const int screenSize { game.cellSize * game.gridSize };
+
     // making sure the goal does not spawn on top of the agent
     do {
-        goalX = GetRandomValue(0, gridSize - 1) ;
-        goalY = GetRandomValue(0, gridSize - 1) ;
-    } while (goalX == agentX && goalY == agentY);
+        state.goalX = GetRandomValue(0, game.gridSize - 1) ;
+        state.goalY = GetRandomValue(0, game.gridSize - 1) ;
+    } while (state.goalX == state.agentX && state.goalY == state.agentY);
 
     InitWindow(screenSize, screenSize, "GridWorld");
     SetTargetFPS(60);
 
     while (!WindowShouldClose()) {
 
-        if (IsKeyPressed(KEY_LEFT) && (agentX != 0)) {
-            agentX += -1;
-            ++steps;
+        if (IsKeyPressed(KEY_LEFT) && (state.agentX != 0)) {
+            state.agentX += -1;
+            ++game.steps;
         }
-        if (IsKeyPressed(KEY_RIGHT) && (agentX != (gridSize -1))) {
-            agentX += 1;
-            ++steps;
+        if (IsKeyPressed(KEY_RIGHT) && (state.agentX != (game.gridSize -1))) {
+            state.agentX += 1;
+            ++game.steps;
         }
-        if (IsKeyPressed(KEY_UP) && (agentY != 0)) {
-            agentY += -1;
-            ++steps;
+        if (IsKeyPressed(KEY_UP) && (state.agentY != 0)) {
+            state.agentY += -1;
+            ++game.steps;
         }
-        if (IsKeyPressed(KEY_DOWN) && (agentY != (gridSize - 1))) {
-            agentY += 1;
-            ++steps;
+        if (IsKeyPressed(KEY_DOWN) && (state.agentY != (game.gridSize - 1))) {
+            state.agentY += 1;
+            ++game.steps;
         }
 
         // detect when the agent reaches the goal 
-        if (agentX == goalX && agentY == goalY) {
+        if (state.agentX == state.goalX && state.agentY == state.goalY) {
             std::cout << "Goal Reached!\n";
-            respawn(episodeCount, agentX, agentY, goalX, goalY, gridSize, steps);
+            respawn(state, game);
         }
 
         BeginDrawing();
         ClearBackground(BLACK);
 
-        for (int i {}; i <= gridSize; ++i) {
-            const int pos { i * cellSize };
+        for (int i {}; i <= game.gridSize; ++i) {
+            const int pos { i * game.cellSize };
             DrawLine(pos, 0, pos, screenSize, LIGHTGRAY);
             DrawLine(0, pos, screenSize, pos, LIGHTGRAY);
 
         }
 
-        DrawRectangle(agentX * cellSize, agentY * cellSize, cellSize, cellSize, ORANGE);  
-        DrawRectangle(goalX * cellSize, goalY * cellSize, cellSize, cellSize, GREEN);   
+        DrawRectangle(state.agentX * game.cellSize, state.agentY * game.cellSize, game.cellSize, game.cellSize, ORANGE);  
+        DrawRectangle(state.goalX * game.cellSize, state.goalY * game.cellSize, game.cellSize, game.cellSize, GREEN);   
         EndDrawing();
     }
 
