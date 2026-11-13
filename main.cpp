@@ -154,7 +154,17 @@ int main() {
             reward.episodeReward +=  reward.goalReward;
             game.totalRewards += reward.episodeReward;
             game.totalSteps += game.steps;
+
+                        // epsilon decay
+            if (qLearning.epsilon > qLearning.epsilonMin) {
+                qLearning.epsilon *= qLearning.epsilonDecay;
+
+                if (qLearning.epsilon < qLearning.epsilonMin) {
+                    qLearning.epsilon = qLearning.epsilonMin;
+                }
+            }
             respawn(state, game, reward);
+            std::cout << "Epsilon: " << qLearning.epsilon << '\n';
             reward.episodeReward = 0;
         }
 
