@@ -19,6 +19,14 @@ struct State {
     int goalY{};
 };
 
+enum Choice {
+    LEFT,   // 0
+    RIGHT,  // 1
+    UP,     // 2
+    DOWN    // 3
+
+};
+
 void spawnGoal(State& state, const Game& game) {
     // making sure the goal does not spawn on top of the agent
     do {
@@ -47,6 +55,10 @@ int main() {
     Game game{};
     const int screenSize { game.cellSize * game.gridSize };
 
+    // variables for speed and time
+    constexpr float speed {0.2f};
+    float timer{0.0f};
+
     spawnGoal(state, game);
 
     InitWindow(screenSize, screenSize, "GridWorld");
@@ -54,21 +66,39 @@ int main() {
 
     while (!WindowShouldClose()) {
 
-        if (IsKeyPressed(KEY_LEFT) && (state.agentX != 0)) {
-            state.agentX += -1;
-            ++game.steps;
-        }
-        if (IsKeyPressed(KEY_RIGHT) && (state.agentX != (game.gridSize -1))) {
-            state.agentX += 1;
-            ++game.steps;
-        }
-        if (IsKeyPressed(KEY_UP) && (state.agentY != 0)) {
-            state.agentY += -1;
-            ++game.steps;
-        }
-        if (IsKeyPressed(KEY_DOWN) && (state.agentY != (game.gridSize - 1))) {
-            state.agentY += 1;
-            ++game.steps;
+        timer += GetFrameTime(); // adding framae time to the timer
+
+        if (timer >= speed) {
+            
+            Choice random_choice = (Choice)GetRandomValue(LEFT, DOWN);
+
+            switch (random_choice) {
+                case LEFT:
+                    if (state.agentX != 0) {
+                        state.agentX += -1;
+                        ++game.steps;
+                    }
+                    break;
+                case RIGHT:
+                    if (state.agentX != (game.gridSize -1)) {
+                        state.agentX += 1;
+                        ++game.steps;
+                    }
+                    break;
+                case UP:
+                    if (state.agentY != 0) {
+                        state.agentY += -1;
+                        ++game.steps;
+                    }
+                    break;
+                case DOWN:
+                    if (state.agentY != (game.gridSize - 1)) {
+                        state.agentY += 1;
+                        ++game.steps;
+                    }
+                    break;
+            }
+            timer -= speed;
         }
 
         if (state.goalX == state.agentX && state.goalY == state.agentY) {
