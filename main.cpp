@@ -19,6 +19,12 @@ struct State {
     int goalY{};
 };
 
+struct Reward {
+    const int goalReward {10};
+    const int stepPenalty {-1};
+    int episodeReward {};
+};
+
 enum Choice {
     LEFT,   // 0
     RIGHT,  // 1
@@ -35,7 +41,7 @@ void spawnGoal(State& state, const Game& game) {
     } while (state.goalX == state.agentX && state.goalY == state.agentY);
 }
 
-void respawn(State& state, Game& game) {
+void respawn(State& state, Game& game, const Reward& reward) {
     ++game.episodeCount;
     state.agentX = 0;
     state.agentY = 0;
@@ -43,6 +49,7 @@ void respawn(State& state, Game& game) {
     spawnGoal(state, game);
 
     std::cout << "Episode " << game.episodeCount << " completed in " << game.steps << " steps" << '\n';
+    std::cout << "Reward for this episode: " << reward.episodeReward << " completed in " << game.steps << " steps" << '\n';
 
     game.steps = 0;
 }
@@ -53,6 +60,7 @@ int main() {
 
     State state{};
     Game game{};
+    Reward reward{};
     const int screenSize { game.cellSize * game.gridSize };
 
     // variables for speed and time
@@ -69,40 +77,41 @@ int main() {
         timer += GetFrameTime(); // adding framae time to the timer
 
         if (timer >= speed) {
-            
+
             Choice random_choice = (Choice)GetRandomValue(LEFT, DOWN);
 
             switch (random_choice) {
                 case LEFT:
                     if (state.agentX != 0) {
                         state.agentX += -1;
-                        ++game.steps;
                     }
                     break;
                 case RIGHT:
                     if (state.agentX != (game.gridSize -1)) {
                         state.agentX += 1;
-                        ++game.steps;
                     }
                     break;
                 case UP:
                     if (state.agentY != 0) {
                         state.agentY += -1;
-                        ++game.steps;
                     }
                     break;
                 case DOWN:
                     if (state.agentY != (game.gridSize - 1)) {
                         state.agentY += 1;
-                        ++game.steps;
                     }
                     break;
             }
+
+            ++game.steps;
+            reward.episodeReward +=  reward.stepPenalty;
             timer -= speed;
         }
 
         if (state.goalX == state.agentX && state.goalY == state.agentY) {
-            respawn(state, game);
+            reward.episodeReward +=  reward.goalReward;
+            respawn(state, game, reward);
+            reward.episodeReward = 0;
         }
 
         BeginDrawing();
