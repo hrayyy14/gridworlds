@@ -1,39 +1,12 @@
-# Virtual Environment
-.venv/
-env/
-venv/
-
-# Python Cache & Bytecode
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Jupyter Checkpoints
-.ipynb_checkpoints/
-
-# VS Code settings
-.vscode/
-
-# Output artifacts
-*.png
-*.log
-
-# macOS metadata
-.DS_Store
-
-# C / C++ build directories & objects
-bin/
+# Build directories & compiled binaries
 build/
+bin/
+grid
+*.out
 *.o
 *.obj
 *.dSYM/
 
-# Compiled C / C++ exercise binaries without extensions
-C/ML/neuron
-C/ML/temperature
-C/week1/calculator
-C/week1/converter
-C/week1/guessing
-C/week1/text_stats
-Cpp/week1/account_balance
-Cpp/week2/ex9
+# macOS & Editor metadata
+.DS_Store
+.vscode/
