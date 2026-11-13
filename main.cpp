@@ -59,7 +59,7 @@ int main() {
     const int screenSize { game.cellSize * game.gridSize };
 
     // variables for speed and time
-    constexpr float speed {0.01f};
+    constexpr float speed {0.03f};
     float timer{0.0f};
 
     spawnGoal(state, game);
@@ -76,11 +76,29 @@ int main() {
             int oldX {state.agentX};
             int oldY {state.agentY};
 
-            Choice random_choice = (Choice)GetRandomValue(LEFT, DOWN);
+            int bestAction {LEFT};
+            float bestQ {qLearning.qTable[state.agentX][state.agentY][LEFT]};
 
-            std::cout << "Table value at [" << state.agentX << "][" << state.agentY << "][" << random_choice << "] is: " << qLearning.qTable[state.agentX][state.agentY][random_choice] << '\n';
+            for (int i{1}; i < 4; ++i) {
+                if (qLearning.qTable[state.agentX][state.agentY][i] > bestQ) {
+                    bestQ = qLearning.qTable[state.agentX][state.agentY][i];
+                    bestAction = i;
+                }
+            }
 
-            switch (random_choice) {
+            // choose between exploration and exploitation
+            int randomNumber { GetRandomValue(0, 99) };
+            Choice chosenAction {};
+
+            if (randomNumber < qLearning.epsilon * 100) {
+                // EXPLORATION
+                chosenAction = static_cast<Choice>(GetRandomValue(LEFT, DOWN));
+            } else {
+                // EXPLOITATION
+                chosenAction = static_cast<Choice>(bestAction);
+            }
+
+            switch (chosenAction) {
                 case LEFT:
                     if (state.agentX != 0) {
                         state.agentX += -1;
@@ -104,12 +122,6 @@ int main() {
             }
 
             float maxnextQ { qLearning.qTable[state.agentX][state.agentY][LEFT] };
-            bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
-            int currentReward {-1};
-            if (reachedGoal) {
-                currentReward = +9; // -1 +10
-                maxnextQ = 0.0f;
-            }
 
             for (int i{1}; i < 4; ++i) { // 4 because we have 4 actions {0, 1, 2, 3}
                 if (qLearning.qTable[state.agentX][state.agentY][i] > maxnextQ) {
@@ -117,17 +129,23 @@ int main() {
                 }
             }
 
-            float oldQ {qLearning.qTable[oldX][oldY][random_choice]};
+            bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
+            int currentReward {-1};
+
+            if (reachedGoal) {
+                currentReward = 9; // -1 +10
+                maxnextQ = 0.0f;
+            }
+
+            float oldQ {qLearning.qTable[oldX][oldY][chosenAction]};
 
             // BELLMAN EQUATION 
             oldQ = oldQ + qLearning.alpha * (currentReward + (qLearning.gamma * maxnextQ) - oldQ);
-            qLearning.qTable[oldX][oldY][random_choice] = oldQ;
+            qLearning.qTable[oldX][oldY][chosenAction] = oldQ;
 
 
             ++game.steps;
             reward.episodeReward +=  reward.stepPenalty;
-
-            std::cout << "Updated Q-value: " << qLearning.qTable[oldX][oldY][random_choice] << '\n';
 
             timer -= speed;
         }
