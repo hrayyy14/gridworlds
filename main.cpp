@@ -52,9 +52,15 @@ void respawn(State& state, Game& game, const Reward& reward) {
         sumSteps += num;
     }
 
+    // fewer steps ever taken to reach a goal
+    if (game.episodeCount == 1 || game.steps < game.bestSteps) {
+        game.bestSteps = game.steps;
+    }
+
 
     std::cout << "\tAverage steps: " << averageSteps << '\n';
     std::cout << "\tAverage steps last " << game.recentSteps.size() << " episodes: " << static_cast<float>(sumSteps) / game.recentSteps.size() << '\n';
+    std::cout << "\tBest steps: " << game.bestSteps << '\n';
     std::cout << "\tAverage reward: " << averageReward << '\n';
 
     game.steps = 0;

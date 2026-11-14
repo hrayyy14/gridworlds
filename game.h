@@ -11,4 +11,6 @@ struct Game {
     int totalRewards{};
 
     std::deque<int> recentSteps {};
+
+    int bestSteps {};
 };
