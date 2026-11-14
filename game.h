@@ -1,4 +1,5 @@
 #pragma once
+#include <deque>
 
 struct Game {
     const int cellSize {60};
@@ -8,4 +9,6 @@ struct Game {
 
     int totalSteps{};
     int totalRewards{};
+
+    std::deque<int> recentSteps {};
 };

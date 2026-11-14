@@ -36,14 +36,26 @@ void respawn(State& state, Game& game, const Reward& reward) {
     spawnGoal(state, game);
 
     std::cout << "Episode " << game.episodeCount << " completed in " << game.steps << " steps" << '\n';
-    std::cout << "Reward for this episode: " << reward.episodeReward << " completed in " << game.steps << " steps" << '\n';
+    std::cout << "\tReward for this episode: " << reward.episodeReward << " completed in " << game.steps << " steps" << '\n';
 
     // average performance
     float averageSteps {static_cast<float>(game.totalSteps) / game.episodeCount};
     float averageReward {static_cast<float>(game.totalRewards) / game.episodeCount};
 
-    std::cout << "Average steps: " << averageSteps << '\n';
-    std::cout << "Average reward: " << averageReward << '\n';
+    game.recentSteps.push_back(game.steps);
+    if (game.recentSteps.size() > 50) {
+        game.recentSteps.pop_front();
+    }
+
+    int sumSteps{};
+    for (int num : game.recentSteps) {
+        sumSteps += num;
+    }
+
+
+    std::cout << "\tAverage steps: " << averageSteps << '\n';
+    std::cout << "\tAverage steps last " << game.recentSteps.size() << " episodes: " << static_cast<float>(sumSteps) / game.recentSteps.size() << '\n';
+    std::cout << "\tAverage reward: " << averageReward << '\n';
 
     game.steps = 0;
 }
@@ -59,7 +71,7 @@ int main() {
     const int screenSize { game.cellSize * game.gridSize };
 
     // variables for speed and time
-    constexpr float speed {0.03f};
+    constexpr float speed {0.01f};
     float timer{0.0f};
 
     spawnGoal(state, game);
@@ -164,7 +176,7 @@ int main() {
                 }
             }
             respawn(state, game, reward);
-            std::cout << "Epsilon: " << qLearning.epsilon << '\n';
+            std::cout << "\tEpsilon: " << qLearning.epsilon << '\n';
             reward.episodeReward = 0;
         }
 
