@@ -7,6 +7,9 @@ grid
 *.obj
 *.dSYM/
 
+# Private project roadmap
+roadmap.md
+
 # macOS & Editor metadata
 .DS_Store
 .vscode/
