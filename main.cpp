@@ -116,11 +116,19 @@ int main() {
 
             int bestAction {LEFT};
             float bestQ {qLearning.qTable[state.agentX][state.agentY][LEFT]};
+            int tieCount {1};
 
             for (int i{1}; i < 4; ++i) {
                 if (qLearning.qTable[state.agentX][state.agentY][i] > bestQ) {
                     bestQ = qLearning.qTable[state.agentX][state.agentY][i];
                     bestAction = i;
+                    tieCount = 1;
+                }
+                else if (qLearning.qTable[state.agentX][state.agentY][i] == bestQ) {
+                    ++tieCount;
+                    if (GetRandomValue(1, tieCount) == 1) {
+                        bestAction = i;
+                    }
                 }
             }
 
