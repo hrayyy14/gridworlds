@@ -28,7 +28,7 @@ void spawnGoal(State& state, const Game& game) {
     state.goalY = game.gridSize - 1;
 }
 
-void respawn(State& state, Game& game, const Reward& reward) {
+void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal) {
     // update episode count
     ++game.episodeCount;
 
@@ -36,16 +36,16 @@ void respawn(State& state, Game& game, const Reward& reward) {
         ++game.trainingEpisodes;
     } else {
         ++game.evaluationEpisodes;
+        game.evaluationTotalSteps += game.steps;
+        if (reachedGoal) {
+            ++game.evaluationSuccesses;
+        }
+
     }
 
     // update performance stats
     float averageSteps {static_cast<float>(game.totalSteps) / game.episodeCount};
     float averageReward {static_cast<float>(game.totalRewards) / game.episodeCount};
-
-    if (game.evaluationEpisodes > 0) {
-        float averageEvaluationSteps { static_cast<float>(game.evaluationTotalSteps) / game.evaluationEpisodes };
-        std::cout << "\tAverage evaluation steps: " << averageEvaluationSteps << '\n';
-    }
 
     game.recentSteps.push_back(game.steps);
     if (game.recentSteps.size() > 50) {
@@ -57,7 +57,7 @@ void respawn(State& state, Game& game, const Reward& reward) {
         sumSteps += num;
     }
 
-    if (game.episodeCount == 1 || game.steps < game.bestSteps) { // fewer steps ever taken to reach a goal
+    if (reachedGoal && (game.bestSteps == 0 || game.steps < game.bestSteps)) { // fewer steps ever taken to reach a goal
         game.bestSteps = game.steps;
     }
 
@@ -69,6 +69,12 @@ void respawn(State& state, Game& game, const Reward& reward) {
     std::cout << "\tAverage steps: " << averageSteps << '\n';
     std::cout << "\tAverage steps last " << game.recentSteps.size() << " episodes: " << static_cast<float>(sumSteps) / game.recentSteps.size() << '\n';
     std::cout << "\tBest steps: " << game.bestSteps << '\n';
+    if (game.evaluationEpisodes > 0) {
+        float averageEvaluationSteps { static_cast<float>(game.evaluationTotalSteps) / game.evaluationEpisodes };
+        float evaluationSuccessRate { static_cast<float>(game.evaluationSuccesses) / game.evaluationEpisodes * 100.0f };
+        std::cout << "\tAverage evaluation steps: " << averageEvaluationSteps << '\n';
+        std::cout << "\tEvaluation success rate: " << evaluationSuccessRate << "%\n";
+    }
     std::cout << "\tAverage reward: " << averageReward << '\n';
 
     // reset
@@ -183,8 +189,14 @@ int main() {
             timer -= speed;
         }
 
-        if (state.goalX == state.agentX && state.goalY == state.agentY) {
-            reward.episodeReward +=  reward.goalReward;
+        bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
+        bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
+
+        if (reachedGoal || truncated) {
+            if (reachedGoal) {
+                reward.episodeReward +=  reward.goalReward;
+            }
+
             game.totalRewards += reward.episodeReward;
             game.totalSteps += game.steps;
 
@@ -196,10 +208,11 @@ int main() {
                     qLearning.epsilon = qLearning.epsilonMin;
                 }
             }
-            respawn(state, game, reward);
 
+            respawn(state, game, reward, reachedGoal);
+  
             // switch between training and evaluation
-            if (game.mode == Mode::TRAINING && game.trainingEpisodes % 10 == 0) {
+            if (game.mode == Mode::TRAINING && game.trainingEpisodes % 100 == 0) {
                 game.mode = Mode::EVALUATION;
                 std::cout << "SWITCHING TO EVALUATION MODE\n";
             }

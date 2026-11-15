@@ -9,6 +9,7 @@ enum class Mode {
 struct Game {
     const int cellSize {60};
     static constexpr int gridSize {10};
+    static constexpr int maxSteps {200};
     int episodeCount {};
     int steps {};
 
@@ -18,6 +19,7 @@ struct Game {
     int totalSteps{};
     int totalRewards{};
     int evaluationTotalSteps {};
+    int evaluationSuccesses {};
 
     std::deque<int> recentSteps {};
 
