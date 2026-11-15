@@ -14,6 +14,21 @@ enum Choice {
 
 };
 
+bool isValidAction(const State& state, const Game& game, Choice action) {
+    switch (action) {
+        case LEFT:  
+            return state.agentX > 0;
+        case RIGHT: 
+            return state.agentX < game.gridSize - 1;
+        case UP:    
+            return state.agentY > 0;
+        case DOWN:  
+            return state.agentY < game.gridSize - 1;
+    }
+
+    return false;
+}
+
 void spawnGoal(State& state, const Game& game) {
     // making sure the goal does not spawn on top of the agent
     /*
@@ -97,7 +112,7 @@ int main() {
     const int screenSize { game.cellSize * game.gridSize };
 
     // variables for speed and time
-    constexpr float speed {0.01f};
+    constexpr float speed {0.001f};
     float timer{0.0f};
 
     spawnGoal(state, game);
@@ -114,18 +129,25 @@ int main() {
             int oldX {state.agentX};
             int oldY {state.agentY};
 
-            int bestAction {LEFT};
-            float bestQ {qLearning.qTable[state.agentX][state.agentY][LEFT]};
+            int bestAction {-1};
+            float bestQ {};
             int tieCount {1};
 
-            for (int i{1}; i < 4; ++i) {
-                if (qLearning.qTable[state.agentX][state.agentY][i] > bestQ) {
-                    bestQ = qLearning.qTable[state.agentX][state.agentY][i];
+            for (int i{}; i < 4; ++i) {
+                if (!isValidAction(state, game, static_cast<Choice>(i))) {
+                    continue;
+                }
+
+                float currentQ {qLearning.qTable[state.agentX][state.agentY][i]};
+
+                if (bestAction == -1 || currentQ > bestQ) {
+                    bestQ = currentQ;
                     bestAction = i;
                     tieCount = 1;
                 }
-                else if (qLearning.qTable[state.agentX][state.agentY][i] == bestQ) {
+                else if (currentQ == bestQ) {
                     ++tieCount;
+
                     if (GetRandomValue(1, tieCount) == 1) {
                         bestAction = i;
                     }
@@ -138,7 +160,9 @@ int main() {
 
             if ((game.mode == Mode::TRAINING) && (randomNumber < qLearning.epsilon * 100)) {
                 // EXPLORATION
-                chosenAction = static_cast<Choice>(GetRandomValue(LEFT, DOWN));
+                do {
+                    chosenAction = static_cast<Choice>(GetRandomValue(LEFT, DOWN)); // exploration only selects legal moves
+                } while (!isValidAction(state, game, chosenAction));
             } else {
                 // EXPLOITATION
                 chosenAction = static_cast<Choice>(bestAction);
@@ -167,11 +191,19 @@ int main() {
                     break;
             }
 
-            float maxnextQ { qLearning.qTable[state.agentX][state.agentY][LEFT] };
+            float maxnextQ {};
+            bool foundValidAction {false};
 
-            for (int i{1}; i < 4; ++i) { // 4 because we have 4 actions {0, 1, 2, 3}
-                if (qLearning.qTable[state.agentX][state.agentY][i] > maxnextQ) {
-                    maxnextQ = qLearning.qTable[state.agentX][state.agentY][i];
+            for (int i{0}; i < 4; ++i) { // 4 because we have 4 actions {0, 1, 2, 3}
+                if (!isValidAction(state, game, static_cast<Choice>(i))) {
+                    continue;
+                }
+
+                float currentQ {qLearning.qTable[state.agentX][state.agentY][i]};
+
+                if (!foundValidAction || currentQ > maxnextQ) {
+                    maxnextQ = currentQ;
+                    foundValidAction = true;
                 }
             }
 
@@ -220,7 +252,7 @@ int main() {
             respawn(state, game, reward, reachedGoal);
   
             // switch between training and evaluation
-            if (game.mode == Mode::TRAINING && game.trainingEpisodes % 100 == 0) {
+            if (game.mode == Mode::TRAINING && game.trainingEpisodes % 2000 == 0) {
                 game.mode = Mode::EVALUATION;
                 std::cout << "SWITCHING TO EVALUATION MODE\n";
             }
