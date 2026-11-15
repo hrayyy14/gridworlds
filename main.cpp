@@ -29,18 +29,23 @@ void spawnGoal(State& state, const Game& game) {
 }
 
 void respawn(State& state, Game& game, const Reward& reward) {
+    // update episode count
     ++game.episodeCount;
-    state.agentX = 0;
-    state.agentY = 0;
 
-    spawnGoal(state, game);
+    if (game.mode == Mode::TRAINING) {
+        ++game.trainingEpisodes;
+    } else {
+        ++game.evaluationEpisodes;
+    }
 
-    std::cout << "Episode " << game.episodeCount << " completed in " << game.steps << " steps" << '\n';
-    std::cout << "\tReward for this episode: " << reward.episodeReward << " completed in " << game.steps << " steps" << '\n';
-
-    // average performance
+    // update performance stats
     float averageSteps {static_cast<float>(game.totalSteps) / game.episodeCount};
     float averageReward {static_cast<float>(game.totalRewards) / game.episodeCount};
+
+    if (game.evaluationEpisodes > 0) {
+        float averageEvaluationSteps { static_cast<float>(game.evaluationTotalSteps) / game.evaluationEpisodes };
+        std::cout << "\tAverage evaluation steps: " << averageEvaluationSteps << '\n';
+    }
 
     game.recentSteps.push_back(game.steps);
     if (game.recentSteps.size() > 50) {
@@ -52,10 +57,13 @@ void respawn(State& state, Game& game, const Reward& reward) {
         sumSteps += num;
     }
 
-    // fewer steps ever taken to reach a goal
-    if (game.episodeCount == 1 || game.steps < game.bestSteps) {
+    if (game.episodeCount == 1 || game.steps < game.bestSteps) { // fewer steps ever taken to reach a goal
         game.bestSteps = game.steps;
     }
+
+    // prints
+    std::cout << "Episode " << game.episodeCount << " completed in " << game.steps << " steps" << '\n';
+    std::cout << "\tReward for this episode: " << reward.episodeReward << " completed in " << game.steps << " steps" << '\n';
 
 
     std::cout << "\tAverage steps: " << averageSteps << '\n';
@@ -63,7 +71,13 @@ void respawn(State& state, Game& game, const Reward& reward) {
     std::cout << "\tBest steps: " << game.bestSteps << '\n';
     std::cout << "\tAverage reward: " << averageReward << '\n';
 
+    // reset
     game.steps = 0;
+
+    state.agentX = 0;
+    state.agentY = 0;
+
+    spawnGoal(state, game);
 }
 
 
@@ -108,7 +122,7 @@ int main() {
             int randomNumber { GetRandomValue(0, 99) };
             Choice chosenAction {};
 
-            if (randomNumber < qLearning.epsilon * 100) {
+            if ((game.mode == Mode::TRAINING) && (randomNumber < qLearning.epsilon * 100)) {
                 // EXPLORATION
                 chosenAction = static_cast<Choice>(GetRandomValue(LEFT, DOWN));
             } else {
@@ -158,9 +172,10 @@ int main() {
             float oldQ {qLearning.qTable[oldX][oldY][chosenAction]};
 
             // BELLMAN EQUATION 
-            oldQ = oldQ + qLearning.alpha * (currentReward + (qLearning.gamma * maxnextQ) - oldQ);
-            qLearning.qTable[oldX][oldY][chosenAction] = oldQ;
-
+            if (game.mode == Mode::TRAINING) {
+                oldQ = oldQ + qLearning.alpha * (currentReward + (qLearning.gamma * maxnextQ) - oldQ);
+                qLearning.qTable[oldX][oldY][chosenAction] = oldQ;
+            }
 
             ++game.steps;
             reward.episodeReward +=  reward.stepPenalty;
@@ -173,8 +188,8 @@ int main() {
             game.totalRewards += reward.episodeReward;
             game.totalSteps += game.steps;
 
-                        // epsilon decay
-            if (qLearning.epsilon > qLearning.epsilonMin) {
+            // epsilon decay
+            if ((game.mode == Mode::TRAINING) && (qLearning.epsilon > qLearning.epsilonMin)) {
                 qLearning.epsilon *= qLearning.epsilonDecay;
 
                 if (qLearning.epsilon < qLearning.epsilonMin) {
@@ -182,6 +197,17 @@ int main() {
                 }
             }
             respawn(state, game, reward);
+
+            // switch between training and evaluation
+            if (game.mode == Mode::TRAINING && game.trainingEpisodes % 10 == 0) {
+                game.mode = Mode::EVALUATION;
+                std::cout << "SWITCHING TO EVALUATION MODE\n";
+            }
+            else if (game.mode == Mode::EVALUATION && game.evaluationEpisodes % 20 == 0) {
+                game.mode = Mode::TRAINING;
+                std::cout << "SWITCHING TO TRAINING MODE\n";
+            }
+
             std::cout << "\tEpsilon: " << qLearning.epsilon << '\n';
             reward.episodeReward = 0;
         }
