@@ -204,6 +204,29 @@ void step(State& state, Game& game, Reward& reward, QLearning& qLearning) { // o
     reward.episodeReward +=  reward.stepPenalty;
 }
 
+void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearning, bool reachedGoal) { // handles anything that happens when an episode ends
+    if (reachedGoal) {
+        reward.episodeReward +=  reward.goalReward;
+    }
+
+    game.totalRewards += reward.episodeReward;
+    game.totalSteps += game.steps;
+
+    // epsilon decay
+    if ((game.mode == Mode::TRAINING) && (qLearning.epsilon > qLearning.epsilonMin)) {
+        qLearning.epsilon *= qLearning.epsilonDecay;
+
+        if (qLearning.epsilon < qLearning.epsilonMin) {
+            qLearning.epsilon = qLearning.epsilonMin;
+        }
+    }
+
+    respawn(state, game, reward, reachedGoal);
+
+    std::cout << "\tEpsilon: " << qLearning.epsilon << '\n';
+    reward.episodeReward = 0;
+}
+
 
 int main(int argc, char* argv[]) {
     SetRandomSeed(static_cast<unsigned int>(time(nullptr))); // random seed
@@ -222,75 +245,52 @@ int main(int argc, char* argv[]) {
     const int screenSize { game.cellSize * game.gridSize };
 
     // variables for speed and time
-    constexpr float speed {0.001f};
+    constexpr float speed {0.2f};
     float timer{0.0f};
 
     spawnGoal(state, game);
 
-    if (render) {
-        InitWindow(screenSize, screenSize, "GridWorld");
-        SetTargetFPS(60);
+    while (game.trainingEpisodes < game.maxTrainingEpisodes) {
+        step(state, game, reward, qLearning);
+
+        bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
+        bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
+
+        if (reachedGoal || truncated) {
+            finishEpisodes(state, game, reward, qLearning, reachedGoal);
+        }
     }
 
-    while (!render || !WindowShouldClose()) {
+    if (render) {
+        game.mode = Mode::EVALUATION;
+        state.agentX = 5;
+        state.agentY = 5;
 
-        if (render) {
+        InitWindow(screenSize, screenSize, "GridWorld");
+        SetTargetFPS(60);
+
+        while (!WindowShouldClose()) {
+
             timer += GetFrameTime();
 
             if (timer >= speed) {
                 step(state, game, reward, qLearning);
                 timer -= speed;
             }
-        } else {
-            step(state, game, reward, qLearning);
-        }
 
-        bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
-        bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
+            bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
+            bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
 
-        if (reachedGoal || truncated) { // episode completion block
-            if (reachedGoal) {
-                reward.episodeReward +=  reward.goalReward;
-            }
+            if (reachedGoal || truncated) { // episode completion block
 
-            game.totalRewards += reward.episodeReward;
-            game.totalSteps += game.steps;
+                finishEpisodes(state, game, reward, qLearning, reachedGoal);
 
-            // epsilon decay
-            if ((game.mode == Mode::TRAINING) && (qLearning.epsilon > qLearning.epsilonMin)) {
-                qLearning.epsilon *= qLearning.epsilonDecay;
-
-                if (qLearning.epsilon < qLearning.epsilonMin) {
-                    qLearning.epsilon = qLearning.epsilonMin;
+                if (game.mode == Mode::EVALUATION) {
+                    state.agentX = 5;
+                    state.agentY = 5;
                 }
             }
 
-            respawn(state, game, reward, reachedGoal);
-  
-            // switch between training and evaluation
-            if (game.mode == Mode::TRAINING && game.trainingEpisodes % 2000 == 0) {
-                game.mode = Mode::EVALUATION;
-                std::cout << "SWITCHING TO EVALUATION MODE\n";
-            }
-            else if (game.mode == Mode::EVALUATION && game.evaluationEpisodes % 20 == 0) {
-                game.mode = Mode::TRAINING;
-                std::cout << "SWITCHING TO TRAINING MODE\n";
-            }
-
-            if (game.mode == Mode::EVALUATION) {
-                state.agentX = 5;
-                state.agentY = 5;
-            }
-
-            if (!render && game.trainingEpisodes >= Game::maxTrainingEpisodes && game.evaluationEpisodes >= 20) {
-                break;
-            }
-
-            std::cout << "\tEpsilon: " << qLearning.epsilon << '\n';
-            reward.episodeReward = 0;
-        }
-
-        if (render) {
             BeginDrawing();
             ClearBackground(BLACK);
 
@@ -298,15 +298,12 @@ int main(int argc, char* argv[]) {
                 const int pos { i * game.cellSize };
                 DrawLine(pos, 0, pos, screenSize, LIGHTGRAY);
                 DrawLine(0, pos, screenSize, pos, LIGHTGRAY);
-
             }
 
             DrawRectangle(state.agentX * game.cellSize, state.agentY * game.cellSize, game.cellSize, game.cellSize, ORANGE);  
             DrawRectangle(state.goalX * game.cellSize, state.goalY * game.cellSize, game.cellSize, game.cellSize, GREEN);   
             EndDrawing();
         }
-    }
-    if (render) {
         CloseWindow();
     }
     return 0;
