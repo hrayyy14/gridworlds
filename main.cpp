@@ -1,5 +1,6 @@
 #include <iostream>
 #include <ctime>
+#include <string>
 #include "raylib.h"
 #include "game.h"
 #include "state.h"
@@ -101,9 +102,118 @@ void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal) {
     spawnGoal(state, game);
 }
 
+void step(State& state, Game& game, Reward& reward, QLearning& qLearning) { // one action and one q learning update
+    int oldX {state.agentX};
+    int oldY {state.agentY};
 
-int main() {
+    int bestAction {-1};
+    float bestQ {};
+    int tieCount {1};
+
+    for (int i{}; i < 4; ++i) {
+        if (!isValidAction(state, game, static_cast<Choice>(i))) {
+            continue;
+        }
+
+        float currentQ {qLearning.qTable[state.agentX][state.agentY][i]};
+
+        if (bestAction == -1 || currentQ > bestQ) {
+            bestQ = currentQ;
+            bestAction = i;
+            tieCount = 1;
+        }
+        else if (currentQ == bestQ) {
+            ++tieCount;
+
+            if (GetRandomValue(1, tieCount) == 1) {
+                bestAction = i;
+            }
+        }
+    }
+
+    // choose between exploration and exploitation
+    int randomNumber { GetRandomValue(0, 99) };
+    Choice chosenAction {};
+
+    if ((game.mode == Mode::TRAINING) && (randomNumber < qLearning.epsilon * 100)) {
+        // EXPLORATION
+        do {
+            chosenAction = static_cast<Choice>(GetRandomValue(LEFT, DOWN)); // exploration only selects legal moves
+        } while (!isValidAction(state, game, chosenAction));
+    } else {
+        // EXPLOITATION
+        chosenAction = static_cast<Choice>(bestAction);
+    }
+
+    switch (chosenAction) {
+        case LEFT:
+            if (state.agentX != 0) {
+                state.agentX += -1;
+            }
+            break;
+        case RIGHT:
+            if (state.agentX != (game.gridSize -1)) {
+                state.agentX += 1;
+            }
+            break;
+        case UP:
+            if (state.agentY != 0) {
+                state.agentY += -1;
+            }
+            break;
+        case DOWN:
+            if (state.agentY != (game.gridSize - 1)) {
+                state.agentY += 1;
+            }
+            break;
+    }
+
+    float maxnextQ {};
+    bool foundValidAction {false};
+
+    for (int i{0}; i < 4; ++i) { // 4 because we have 4 actions {0, 1, 2, 3}
+        if (!isValidAction(state, game, static_cast<Choice>(i))) {
+            continue;
+        }
+
+        float currentQ {qLearning.qTable[state.agentX][state.agentY][i]};
+
+        if (!foundValidAction || currentQ > maxnextQ) {
+            maxnextQ = currentQ;
+            foundValidAction = true;
+        }
+    }
+
+    bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
+    int currentReward {-1};
+
+    if (reachedGoal) {
+        currentReward = 9; // -1 +10
+        maxnextQ = 0.0f;
+    }
+
+    float oldQ {qLearning.qTable[oldX][oldY][chosenAction]};
+
+    // BELLMAN EQUATION 
+    if (game.mode == Mode::TRAINING) {
+        oldQ = oldQ + qLearning.alpha * (currentReward + (qLearning.gamma * maxnextQ) - oldQ);
+        qLearning.qTable[oldX][oldY][chosenAction] = oldQ;
+    }
+
+    ++game.steps;
+    reward.episodeReward +=  reward.stepPenalty;
+}
+
+
+int main(int argc, char* argv[]) {
     SetRandomSeed(static_cast<unsigned int>(time(nullptr))); // random seed
+
+    bool render {false};
+    for (int i{1}; i < argc; ++i) {
+        if (std::string(argv[i]) == "--render") {
+            render = true;
+        }
+    }
 
     State state{};
     Game game{};
@@ -117,122 +227,28 @@ int main() {
 
     spawnGoal(state, game);
 
-    InitWindow(screenSize, screenSize, "GridWorld");
-    SetTargetFPS(60);
+    if (render) {
+        InitWindow(screenSize, screenSize, "GridWorld");
+        SetTargetFPS(60);
+    }
 
-    while (!WindowShouldClose()) {
+    while (!render || !WindowShouldClose()) {
 
-        timer += GetFrameTime(); // adding framae time to the timer
+        if (render) {
+            timer += GetFrameTime();
 
-        if (timer >= speed) {
-
-            int oldX {state.agentX};
-            int oldY {state.agentY};
-
-            int bestAction {-1};
-            float bestQ {};
-            int tieCount {1};
-
-            for (int i{}; i < 4; ++i) {
-                if (!isValidAction(state, game, static_cast<Choice>(i))) {
-                    continue;
-                }
-
-                float currentQ {qLearning.qTable[state.agentX][state.agentY][i]};
-
-                if (bestAction == -1 || currentQ > bestQ) {
-                    bestQ = currentQ;
-                    bestAction = i;
-                    tieCount = 1;
-                }
-                else if (currentQ == bestQ) {
-                    ++tieCount;
-
-                    if (GetRandomValue(1, tieCount) == 1) {
-                        bestAction = i;
-                    }
-                }
+            if (timer >= speed) {
+                step(state, game, reward, qLearning);
+                timer -= speed;
             }
-
-            // choose between exploration and exploitation
-            int randomNumber { GetRandomValue(0, 99) };
-            Choice chosenAction {};
-
-            if ((game.mode == Mode::TRAINING) && (randomNumber < qLearning.epsilon * 100)) {
-                // EXPLORATION
-                do {
-                    chosenAction = static_cast<Choice>(GetRandomValue(LEFT, DOWN)); // exploration only selects legal moves
-                } while (!isValidAction(state, game, chosenAction));
-            } else {
-                // EXPLOITATION
-                chosenAction = static_cast<Choice>(bestAction);
-            }
-
-            switch (chosenAction) {
-                case LEFT:
-                    if (state.agentX != 0) {
-                        state.agentX += -1;
-                    }
-                    break;
-                case RIGHT:
-                    if (state.agentX != (game.gridSize -1)) {
-                        state.agentX += 1;
-                    }
-                    break;
-                case UP:
-                    if (state.agentY != 0) {
-                        state.agentY += -1;
-                    }
-                    break;
-                case DOWN:
-                    if (state.agentY != (game.gridSize - 1)) {
-                        state.agentY += 1;
-                    }
-                    break;
-            }
-
-            float maxnextQ {};
-            bool foundValidAction {false};
-
-            for (int i{0}; i < 4; ++i) { // 4 because we have 4 actions {0, 1, 2, 3}
-                if (!isValidAction(state, game, static_cast<Choice>(i))) {
-                    continue;
-                }
-
-                float currentQ {qLearning.qTable[state.agentX][state.agentY][i]};
-
-                if (!foundValidAction || currentQ > maxnextQ) {
-                    maxnextQ = currentQ;
-                    foundValidAction = true;
-                }
-            }
-
-            bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
-            int currentReward {-1};
-
-            if (reachedGoal) {
-                currentReward = 9; // -1 +10
-                maxnextQ = 0.0f;
-            }
-
-            float oldQ {qLearning.qTable[oldX][oldY][chosenAction]};
-
-            // BELLMAN EQUATION 
-            if (game.mode == Mode::TRAINING) {
-                oldQ = oldQ + qLearning.alpha * (currentReward + (qLearning.gamma * maxnextQ) - oldQ);
-                qLearning.qTable[oldX][oldY][chosenAction] = oldQ;
-            }
-
-            ++game.steps;
-            reward.episodeReward +=  reward.stepPenalty;
-
-            timer -= speed;
+        } else {
+            step(state, game, reward, qLearning);
         }
 
         bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
         bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
 
-        if (reachedGoal || truncated) {
+        if (reachedGoal || truncated) { // episode completion block
             if (reachedGoal) {
                 reward.episodeReward +=  reward.goalReward;
             }
@@ -261,25 +277,37 @@ int main() {
                 std::cout << "SWITCHING TO TRAINING MODE\n";
             }
 
+            if (game.mode == Mode::EVALUATION) {
+                state.agentX = 5;
+                state.agentY = 5;
+            }
+
+            if (!render && game.trainingEpisodes >= Game::maxTrainingEpisodes && game.evaluationEpisodes >= 20) {
+                break;
+            }
+
             std::cout << "\tEpsilon: " << qLearning.epsilon << '\n';
             reward.episodeReward = 0;
         }
 
-        BeginDrawing();
-        ClearBackground(BLACK);
+        if (render) {
+            BeginDrawing();
+            ClearBackground(BLACK);
 
-        for (int i {}; i <= game.gridSize; ++i) {
-            const int pos { i * game.cellSize };
-            DrawLine(pos, 0, pos, screenSize, LIGHTGRAY);
-            DrawLine(0, pos, screenSize, pos, LIGHTGRAY);
+            for (int i {}; i <= game.gridSize; ++i) {
+                const int pos { i * game.cellSize };
+                DrawLine(pos, 0, pos, screenSize, LIGHTGRAY);
+                DrawLine(0, pos, screenSize, pos, LIGHTGRAY);
 
+            }
+
+            DrawRectangle(state.agentX * game.cellSize, state.agentY * game.cellSize, game.cellSize, game.cellSize, ORANGE);  
+            DrawRectangle(state.goalX * game.cellSize, state.goalY * game.cellSize, game.cellSize, game.cellSize, GREEN);   
+            EndDrawing();
         }
-
-        DrawRectangle(state.agentX * game.cellSize, state.agentY * game.cellSize, game.cellSize, game.cellSize, ORANGE);  
-        DrawRectangle(state.goalX * game.cellSize, state.goalY * game.cellSize, game.cellSize, game.cellSize, GREEN);   
-        EndDrawing();
     }
-
-    CloseWindow();
+    if (render) {
+        CloseWindow();
+    }
     return 0;
 }

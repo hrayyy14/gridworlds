@@ -10,6 +10,7 @@ struct Game {
     const int cellSize {60};
     static constexpr int gridSize {10};
     static constexpr int maxSteps {200};
+    static constexpr int maxTrainingEpisodes {2000};
     int episodeCount {};
     int steps {};
 
