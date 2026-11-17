@@ -108,10 +108,7 @@ void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal) {
     spawnGoal(state, game);
 }
 
-void step(State& state, Game& game, Reward& reward, QLearning& qLearning) { // one action and one q learning update
-    int oldX {state.agentX};
-    int oldY {state.agentY};
-
+Choice chooseAction(const State& state, const Game& game, const QLearning& qLearning) {
     int bestAction {-1};
     float bestQ {};
     int tieCount {1};
@@ -150,6 +147,14 @@ void step(State& state, Game& game, Reward& reward, QLearning& qLearning) { // o
         // EXPLOITATION
         chosenAction = static_cast<Choice>(bestAction);
     }
+    return chosenAction;
+}
+
+void step(State& state, Game& game, Reward& reward, QLearning& qLearning) { // one action and one q learning update
+    int oldX {state.agentX};
+    int oldY {state.agentY};
+
+    Choice chosenAction { chooseAction(state, game, qLearning) };
 
     switch (chosenAction) {
         case LEFT:
