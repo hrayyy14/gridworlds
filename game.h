@@ -1,5 +1,7 @@
 #pragma once
 #include <deque>
+#include "state.h"
+#include "choice.h"
 
 enum class Mode {
     TRAINING,
