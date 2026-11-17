@@ -1,6 +1,8 @@
 #include <iostream>
 #include <ctime>
 #include <string>
+#include <chrono>
+#include <iomanip>
 #include "raylib.h"
 #include "choice.h"
 #include "game.h"
@@ -167,6 +169,8 @@ int main(int argc, char* argv[]) {
 
     spawnGoal(state, game);
 
+    auto startTime {std::chrono::steady_clock::now()};
+
     while (game.trainingEpisodes < game.maxTrainingEpisodes) {
         step(state, game, reward, qLearning);
 
@@ -176,6 +180,22 @@ int main(int argc, char* argv[]) {
         if (reachedGoal || truncated) {
             finishEpisodes(state, game, reward, qLearning, reachedGoal);
         }
+    }
+
+    auto endTime {std::chrono::steady_clock::now()};
+    auto elapsedTime {endTime - startTime};
+    std::chrono::duration<double> seconds {elapsedTime};
+    double stepsPerSecond {game.totalSteps / seconds.count()};
+    
+    std::cout << std::fixed << std::setprecision(2);
+    if (stepsPerSecond >= 1'000'000) {
+        std::cout << "Steps Per Second: " << stepsPerSecond / 1'000'000 << "M\n";
+    }
+    else if (stepsPerSecond >= 1'000) {
+        std::cout << "Steps Per Second: " << stepsPerSecond / 1'000 << "K\n";
+    }
+    else {
+        std::cout << "Steps Per Second: " << stepsPerSecond << '\n';
     }
 
     if (render) {
