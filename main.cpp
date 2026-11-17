@@ -44,7 +44,7 @@ void spawnGoal(State& state, const Game& game) {
     state.goalY = game.gridSize - 1;
 }
 
-void updateAndPrintStats(Game& game, Reward& reward, bool reachedGoal) {
+void updateAndPrintStats(Game& game, const Reward& reward, bool reachedGoal) {
     // update performance stats
     float averageSteps {static_cast<float>(game.totalSteps) / game.episodeCount};
     float averageReward {static_cast<float>(game.totalRewards) / game.episodeCount};
