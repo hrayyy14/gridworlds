@@ -146,7 +146,7 @@ void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearni
 
 
 int main(int argc, char* argv[]) {
-    SetRandomSeed(static_cast<unsigned int>(time(nullptr))); // random seed
+    SetRandomSeed(static_cast<unsigned int>(14)); // random seed
 
     bool render {false};
     for (int i{1}; i < argc; ++i) {
