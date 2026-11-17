@@ -44,25 +44,12 @@ void spawnGoal(State& state, const Game& game) {
     state.goalY = game.gridSize - 1;
 }
 
-void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal) {
-    // update episode count
-    ++game.episodeCount;
-
-    if (game.mode == Mode::TRAINING) {
-        ++game.trainingEpisodes;
-    } else {
-        ++game.evaluationEpisodes;
-        game.evaluationTotalSteps += game.steps;
-        if (reachedGoal) {
-            ++game.evaluationSuccesses;
-        }
-
-    }
-
+void updateAndPrintStats(Game& game, Reward& reward, bool reachedGoal) {
     // update performance stats
     float averageSteps {static_cast<float>(game.totalSteps) / game.episodeCount};
     float averageReward {static_cast<float>(game.totalRewards) / game.episodeCount};
 
+    // rolling average last 50 episodes to measure recent performance
     game.recentSteps.push_back(game.steps);
     if (game.recentSteps.size() > 50) {
         game.recentSteps.pop_front();
@@ -73,7 +60,8 @@ void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal) {
         sumSteps += num;
     }
 
-    if (reachedGoal && (game.bestSteps == 0 || game.steps < game.bestSteps)) { // fewer steps ever taken to reach a goal
+    // fewer steps ever taken to reach a goal when reached goal is true
+    if (reachedGoal && (game.bestSteps == 0 || game.steps < game.bestSteps)) {
         game.bestSteps = game.steps;
     }
 
@@ -92,6 +80,24 @@ void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal) {
         std::cout << "\tEvaluation success rate: " << evaluationSuccessRate << "%\n";
     }
     std::cout << "\tAverage reward: " << averageReward << '\n';
+}
+
+void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal) {
+    // update episode count
+    ++game.episodeCount;
+
+    if (game.mode == Mode::TRAINING) {
+        ++game.trainingEpisodes;
+    } else {
+        ++game.evaluationEpisodes;
+        game.evaluationTotalSteps += game.steps;
+        if (reachedGoal) {
+            ++game.evaluationSuccesses;
+        }
+
+    }
+
+    updateAndPrintStats(game, reward, reachedGoal);
 
     // reset
     game.steps = 0;
