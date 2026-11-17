@@ -2,33 +2,11 @@
 #include <ctime>
 #include <string>
 #include "raylib.h"
+#include "choice.h"
 #include "game.h"
 #include "state.h"
 #include "reward.h"
 #include "q_learning.h"
-
-enum Choice {
-    LEFT,   // 0
-    RIGHT,  // 1
-    UP,     // 2
-    DOWN    // 3
-
-};
-
-bool isValidAction(const State& state, const Game& game, Choice action) {
-    switch (action) {
-        case LEFT:  
-            return state.agentX > 0;
-        case RIGHT: 
-            return state.agentX < game.gridSize - 1;
-        case UP:    
-            return state.agentY > 0;
-        case DOWN:  
-            return state.agentY < game.gridSize - 1;
-    }
-
-    return false;
-}
 
 void spawnGoal(State& state, const Game& game) {
     // making sure the goal does not spawn on top of the agent
@@ -108,48 +86,6 @@ void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal) {
     spawnGoal(state, game);
 }
 
-Choice chooseAction(const State& state, const Game& game, const QLearning& qLearning) {
-    int bestAction {-1};
-    float bestQ {};
-    int tieCount {1};
-
-    for (int i{}; i < 4; ++i) {
-        if (!isValidAction(state, game, static_cast<Choice>(i))) {
-            continue;
-        }
-
-        float currentQ {qLearning.qTable[state.agentX][state.agentY][i]};
-
-        if (bestAction == -1 || currentQ > bestQ) {
-            bestQ = currentQ;
-            bestAction = i;
-            tieCount = 1;
-        }
-        else if (currentQ == bestQ) {
-            ++tieCount;
-
-            if (GetRandomValue(1, tieCount) == 1) {
-                bestAction = i;
-            }
-        }
-    }
-
-    // choose between exploration and exploitation
-    int randomNumber { GetRandomValue(0, 99) };
-    Choice chosenAction {};
-
-    if ((game.mode == Mode::TRAINING) && (randomNumber < qLearning.epsilon * 100)) {
-        // EXPLORATION
-        do {
-            chosenAction = static_cast<Choice>(GetRandomValue(LEFT, DOWN)); // exploration only selects legal moves
-        } while (!isValidAction(state, game, chosenAction));
-    } else {
-        // EXPLOITATION
-        chosenAction = static_cast<Choice>(bestAction);
-    }
-    return chosenAction;
-}
-
 void step(State& state, Game& game, Reward& reward, QLearning& qLearning) { // one action and one q learning update
     int oldX {state.agentX};
     int oldY {state.agentY};
@@ -179,37 +115,7 @@ void step(State& state, Game& game, Reward& reward, QLearning& qLearning) { // o
             break;
     }
 
-    float maxnextQ {};
-    bool foundValidAction {false};
-
-    for (int i{0}; i < 4; ++i) { // 4 because we have 4 actions {0, 1, 2, 3}
-        if (!isValidAction(state, game, static_cast<Choice>(i))) {
-            continue;
-        }
-
-        float currentQ {qLearning.qTable[state.agentX][state.agentY][i]};
-
-        if (!foundValidAction || currentQ > maxnextQ) {
-            maxnextQ = currentQ;
-            foundValidAction = true;
-        }
-    }
-
-    bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
-    int currentReward {-1};
-
-    if (reachedGoal) {
-        currentReward = 9; // -1 +10
-        maxnextQ = 0.0f;
-    }
-
-    float oldQ {qLearning.qTable[oldX][oldY][chosenAction]};
-
-    // BELLMAN EQUATION 
-    if (game.mode == Mode::TRAINING) {
-        oldQ = oldQ + qLearning.alpha * (currentReward + (qLearning.gamma * maxnextQ) - oldQ);
-        qLearning.qTable[oldX][oldY][chosenAction] = oldQ;
-    }
+    updateQTable(state, game, qLearning, oldX, oldY, chosenAction);
 
     ++game.steps;
     reward.episodeReward +=  reward.stepPenalty;

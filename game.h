@@ -28,3 +28,5 @@ struct Game {
 
     Mode mode{Mode::TRAINING};
 };
+
+bool isValidAction(const State& state, const Game& game, Choice action);
