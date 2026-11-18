@@ -11,7 +11,7 @@
 #include "q_learning.h"
 #include "config.h"
 
-void spawnGoal(State& state, const Game& game) {
+void spawnGoal(State& state, const Game& game, const Config& config) {
     // making sure the goal does not spawn on top of the agent
     /*
     do {
@@ -21,8 +21,8 @@ void spawnGoal(State& state, const Game& game) {
     */
 
     // fixing goal at (9,9)
-    state.goalX = game.gridSize - 1;
-    state.goalY = game.gridSize - 1;
+    state.goalX = config.goalX;
+    state.goalY = config.goalY;
 }
 
 void updateAndPrintStats(Game& game, const Reward& reward, bool reachedGoal) {
@@ -63,7 +63,7 @@ void updateAndPrintStats(Game& game, const Reward& reward, bool reachedGoal) {
     std::cout << "\tAverage reward: " << averageReward << '\n';
 }
 
-void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal) {
+void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal, const Config& config) {
     // update episode count
     ++game.episodeCount;
 
@@ -83,10 +83,10 @@ void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal) {
     // reset
     game.steps = 0;
 
-    state.agentX = 0;
-    state.agentY = 0;
+    state.agentX = config.startX;
+    state.agentY = config.startY;
 
-    spawnGoal(state, game);
+    spawnGoal(state, game, config);
 }
 
 void step(State& state, Game& game, Reward& reward, QLearning& qLearning) { // one action and one q learning update
@@ -124,7 +124,7 @@ void step(State& state, Game& game, Reward& reward, QLearning& qLearning) { // o
     reward.episodeReward +=  reward.stepPenalty;
 }
 
-void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearning, bool reachedGoal) { // handles anything that happens when an episode ends
+void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearning, bool reachedGoal, const Config& config) { // handles anything that happens when an episode ends
     if (reachedGoal) {
         reward.episodeReward +=  reward.goalReward;
     }
@@ -141,7 +141,7 @@ void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearni
         }
     }
 
-    respawn(state, game, reward, reachedGoal);
+    respawn(state, game, reward, reachedGoal, config);
 
     std::cout << "\tEpsilon: " << qLearning.epsilon << '\n';
     reward.episodeReward = 0;
@@ -168,7 +168,7 @@ int main(int argc, char* argv[]) {
     constexpr float speed {0.2f};
     float timer{0.0f};
 
-    spawnGoal(state, game);
+    spawnGoal(state, game, config);
 
     auto startTime {std::chrono::steady_clock::now()};
 
@@ -179,7 +179,7 @@ int main(int argc, char* argv[]) {
         bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
 
         if (reachedGoal || truncated) {
-            finishEpisodes(state, game, reward, qLearning, reachedGoal);
+            finishEpisodes(state, game, reward, qLearning, reachedGoal, config);
         }
     }
 
@@ -221,7 +221,7 @@ int main(int argc, char* argv[]) {
 
             if (reachedGoal || truncated) { // episode completion block
 
-                finishEpisodes(state, game, reward, qLearning, reachedGoal);
+                finishEpisodes(state, game, reward, qLearning, reachedGoal, config);
 
                 if (game.mode == Mode::EVALUATION) {
                     state.agentX = 5;
