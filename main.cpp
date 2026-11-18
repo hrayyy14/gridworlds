@@ -9,6 +9,7 @@
 #include "state.h"
 #include "reward.h"
 #include "q_learning.h"
+#include "config.h"
 
 void spawnGoal(State& state, const Game& game) {
     // making sure the goal does not spawn on top of the agent
@@ -148,12 +149,12 @@ void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearni
 
 
 int main(int argc, char* argv[]) {
-    SetRandomSeed(static_cast<unsigned int>(14)); // random seed
+    Config config{};
+    SetRandomSeed(static_cast<unsigned int>(config.seed)); // random seed
 
-    bool render {false};
     for (int i{1}; i < argc; ++i) {
         if (std::string(argv[i]) == "--render") {
-            render = true;
+            config.render = true;
         }
     }
 
@@ -171,7 +172,7 @@ int main(int argc, char* argv[]) {
 
     auto startTime {std::chrono::steady_clock::now()};
 
-    while (game.trainingEpisodes < game.maxTrainingEpisodes) {
+    while (game.trainingEpisodes < config.maxTrainingEpisodes) {
         step(state, game, reward, qLearning);
 
         bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
@@ -198,7 +199,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Steps Per Second: " << stepsPerSecond << '\n';
     }
 
-    if (render) {
+    if (config.render) {
         game.mode = Mode::EVALUATION;
         state.agentX = 5;
         state.agentY = 5;
