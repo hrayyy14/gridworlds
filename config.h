@@ -11,4 +11,11 @@ struct Config {
     const int seed{14};
     const int maxTrainingEpisodes{2000};
     bool render{false};
+
+    // hyperparams
+    const float alpha {0.1f};  // learning rate
+    const float gamma {0.95f};  // discount factor
+    const float epsilon {1.0f}; // start with 100% exploration
+    const float epsilonDecay {0.9995f};
+    const float epsilonMin {0.05f}; // minimum 5% exploration
 };

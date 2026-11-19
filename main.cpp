@@ -161,7 +161,7 @@ int main(int argc, char* argv[]) {
     State state{};
     Game game{};
     Reward reward{config};
-    QLearning qLearning{};
+    QLearning qLearning{config};
     const int screenSize { game.cellSize * game.gridSize };
 
     // variables for speed and time
