@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
 
     State state{};
     Game game{};
-    Reward reward{};
+    Reward reward{config};
     QLearning qLearning{};
     const int screenSize { game.cellSize * game.gridSize };
 

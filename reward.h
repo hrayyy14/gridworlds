@@ -1,7 +1,13 @@
 #pragma once
+#include "config.h"
 
 struct Reward {
-    const int goalReward {10};
-    const int stepPenalty {-1};
+    const int goalReward{};
+    const int stepPenalty{};
     int episodeReward {};
+
+    Reward(const Config& config)
+        : goalReward{config.goalReward},
+          stepPenalty{config.stepPenalty}
+    {}
 };
