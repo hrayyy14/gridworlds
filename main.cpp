@@ -3,6 +3,8 @@
 #include <string>
 #include <chrono>
 #include <iomanip>
+#include <fstream>
+
 #include "raylib.h"
 #include "choice.h"
 #include "game.h"
@@ -124,7 +126,7 @@ void step(State& state, Game& game, Reward& reward, QLearning& qLearning) { // o
     reward.episodeReward +=  reward.stepPenalty;
 }
 
-void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearning, bool reachedGoal, const Config& config) { // handles anything that happens when an episode ends
+void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearning, bool reachedGoal, const Config& config, std::ofstream& csvFile) { // handles anything that happens when an episode ends
     if (reachedGoal) {
         reward.episodeReward +=  reward.goalReward;
     }
@@ -141,6 +143,10 @@ void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearni
         }
     }
 
+    if (game.mode == Mode::TRAINING) {
+        csvFile << game.trainingEpisodes + 1 << ',' << game.steps << ',' << reward.episodeReward << ',' << reachedGoal << '\n';
+    }
+
     respawn(state, game, reward, reachedGoal, config);
 
     std::cout << "\tEpsilon: " << qLearning.epsilon << '\n';
@@ -151,6 +157,15 @@ void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearni
 int main(int argc, char* argv[]) {
     Config config{};
     SetRandomSeed(static_cast<unsigned int>(config.seed)); // random seed
+
+    std::ofstream csvFile("training.csv");
+    //check
+    if (!csvFile.is_open()) {
+        std::cerr << "Error: could not open file for writing.\n";
+        return 1;
+    }
+    //write
+    csvFile << "episode,steps,reward,success\n";
 
     for (int i{1}; i < argc; ++i) {
         if (std::string(argv[i]) == "--render") {
@@ -179,7 +194,7 @@ int main(int argc, char* argv[]) {
         bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
 
         if (reachedGoal || truncated) {
-            finishEpisodes(state, game, reward, qLearning, reachedGoal, config);
+            finishEpisodes(state, game, reward, qLearning, reachedGoal, config, csvFile);
         }
     }
 
@@ -221,7 +236,7 @@ int main(int argc, char* argv[]) {
 
             if (reachedGoal || truncated) { // episode completion block
 
-                finishEpisodes(state, game, reward, qLearning, reachedGoal, config);
+                finishEpisodes(state, game, reward, qLearning, reachedGoal, config, csvFile);
 
                 if (game.mode == Mode::EVALUATION) {
                     state.agentX = 5;

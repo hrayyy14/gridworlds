@@ -6,8 +6,8 @@ grid
 *.o
 *.obj
 *.dSYM/
+*.csv
 
-# Private project roadmap
 roadmap.md
 
 # macOS & Editor metadata
