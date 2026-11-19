@@ -9,6 +9,7 @@ struct Config {
     const int stepPenalty{-1};
 
     const int seed{14};
+    bool randomSeed{false}; // if true --> generates a random seed each run ; false --> always use 14 (or seed var value)
     const int maxTrainingEpisodes{2000};
     bool render{false};
 

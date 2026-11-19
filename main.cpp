@@ -156,7 +156,10 @@ void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearni
 
 int main(int argc, char* argv[]) {
     Config config{};
-    SetRandomSeed(static_cast<unsigned int>(config.seed)); // random seed
+
+    unsigned int seed = config.randomSeed ? static_cast<unsigned int>(time(nullptr)) : static_cast<unsigned int>(config.seed);
+    SetRandomSeed(seed);
+    std::cout << "Seed used: " << seed << '\n';
 
     std::ofstream csvFile("training.csv");
     //check
