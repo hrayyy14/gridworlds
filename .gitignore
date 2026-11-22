@@ -11,6 +11,8 @@ grid
 
 roadmap.md
 
+__pycache__/
+
 # macOS & Editor metadata
 .DS_Store
 .vscode/
