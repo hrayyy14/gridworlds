@@ -27,42 +27,26 @@ void spawnGoal(State& state, const Game& game, const Config& config) {
     state.goalY = config.goalY;
 }
 
-void updateAndPrintStats(Game& game, const Reward& reward, bool reachedGoal) {
-    // update performance stats
-    float averageSteps {static_cast<float>(game.totalSteps) / game.episodeCount};
-    float averageReward {static_cast<float>(game.totalRewards) / game.episodeCount};
+void updateStats(Game& game, bool reachedGoal) {
+    // rolling average: last 50 training episodes
+    if (game.mode == Mode::TRAINING) {
+        game.recentSteps.push_back(game.steps);
 
-    // rolling average last 50 episodes to measure recent performance
-    game.recentSteps.push_back(game.steps);
-    if (game.recentSteps.size() > 50) {
-        game.recentSteps.pop_front();
+        if (game.recentSteps.size() > 50) {
+            game.recentSteps.pop_front();
+        }
+
+        // Best successful training episode
+        if (reachedGoal && (game.bestSteps == 0 || game.steps < game.bestSteps)) {
+            game.bestSteps = game.steps;
+        }
     }
+}
 
-    int sumSteps{};
-    for (int num : game.recentSteps) {
-        sumSteps += num;
+void printProgress(const Game& game, const Config& config) {
+    if (game.mode == Mode::TRAINING && game.trainingEpisodes % 500 == 0) {
+        std::cout << "Progress: " << game.trainingEpisodes << " / " << config.maxTrainingEpisodes << '\n';
     }
-
-    // fewer steps ever taken to reach a goal when reached goal is true
-    if (reachedGoal && (game.bestSteps == 0 || game.steps < game.bestSteps)) {
-        game.bestSteps = game.steps;
-    }
-
-    // prints
-    std::cout << "Episode " << game.episodeCount << " completed in " << game.steps << " steps" << '\n';
-    std::cout << "\tReward for this episode: " << reward.episodeReward << " completed in " << game.steps << " steps" << '\n';
-
-
-    std::cout << "\tAverage steps: " << averageSteps << '\n';
-    std::cout << "\tAverage steps last " << game.recentSteps.size() << " episodes: " << static_cast<float>(sumSteps) / game.recentSteps.size() << '\n';
-    std::cout << "\tBest steps: " << game.bestSteps << '\n';
-    if (game.evaluationEpisodes > 0) {
-        float averageEvaluationSteps { static_cast<float>(game.evaluationTotalSteps) / game.evaluationEpisodes };
-        float evaluationSuccessRate { static_cast<float>(game.evaluationSuccesses) / game.evaluationEpisodes * 100.0f };
-        std::cout << "\tAverage evaluation steps: " << averageEvaluationSteps << '\n';
-        std::cout << "\tEvaluation success rate: " << evaluationSuccessRate << "%\n";
-    }
-    std::cout << "\tAverage reward: " << averageReward << '\n';
 }
 
 void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal, const Config& config) {
@@ -80,7 +64,11 @@ void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal, c
 
     }
 
-    updateAndPrintStats(game, reward, reachedGoal);
+    updateStats(game, reachedGoal);
+
+    if (game.mode == Mode::TRAINING) {
+        printProgress(game, config);
+    }
 
     // reset
     game.steps = 0;
@@ -149,7 +137,6 @@ void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearni
 
     respawn(state, game, reward, reachedGoal, config);
 
-    std::cout << "\tEpsilon: " << qLearning.epsilon << '\n';
     reward.episodeReward = 0;
 }
 
@@ -159,7 +146,6 @@ int main(int argc, char* argv[]) {
 
     unsigned int seed = config.randomSeed ? static_cast<unsigned int>(time(nullptr)) : static_cast<unsigned int>(config.seed);
     SetRandomSeed(seed);
-    std::cout << "Seed used: " << seed << '\n';
 
     std::ofstream csvFile("training.csv");
     //check
@@ -180,6 +166,15 @@ int main(int argc, char* argv[]) {
     Game game{};
     Reward reward{config};
     QLearning qLearning{config};
+
+    std::cout << "\nGridWorld RL\n"
+          << "------------------------------\n"
+          << "Mode:     Training\n"
+          << "Grid:     " << game.gridSize << "x" << game.gridSize << '\n'
+          << "Episodes: " << config.maxTrainingEpisodes << '\n'
+          << "Seed:     " << seed << "\n\n"
+          << "Training...\n";
+
     const int screenSize { game.cellSize * game.gridSize };
 
     // variables for speed and time
@@ -204,17 +199,34 @@ int main(int argc, char* argv[]) {
     auto endTime {std::chrono::steady_clock::now()};
     auto elapsedTime {endTime - startTime};
     std::chrono::duration<double> seconds {elapsedTime};
-    double stepsPerSecond {game.totalSteps / seconds.count()};
     
+    double duration = seconds.count();
+    double stepsPerSecond = duration > 0.0 ? game.totalSteps / duration : 0.0;
+    double episodesPerSecond = duration > 0.0 ? game.trainingEpisodes / duration : 0.0;
+    
+    // formatting
     std::cout << std::fixed << std::setprecision(2);
+    std::cout << "\nTraining complete\n"
+          << "------------------------------\n"
+          << "Total episodes: " << game.trainingEpisodes << '\n'
+          << "Total steps:    " << game.totalSteps << '\n'
+          << "Best steps:    " << game.bestSteps << '\n'
+          << "Duration:      " << std::fixed << std::setprecision(2)
+          << duration << " s\n";
+
+    // more formatting ...
     if (stepsPerSecond >= 1'000'000) {
-        std::cout << "Steps Per Second: " << stepsPerSecond / 1'000'000 << "M\n";
+        std::cout << "Steps/second:  " << stepsPerSecond / 1'000'000 << "M\n";
+    } else if (stepsPerSecond >= 1'000) {
+        std::cout << "Steps/second:  " << stepsPerSecond / 1'000 << "K\n";
+    } else {
+        std::cout << "Steps/second:  " << stepsPerSecond << '\n';
     }
-    else if (stepsPerSecond >= 1'000) {
-        std::cout << "Steps Per Second: " << stepsPerSecond / 1'000 << "K\n";
-    }
-    else {
-        std::cout << "Steps Per Second: " << stepsPerSecond << '\n';
+
+    if (episodesPerSecond >= 1'000) {
+        std::cout << "Episodes/sec:  " << episodesPerSecond / 1'000 << "K\n";
+    } else {
+        std::cout << "Episodes/sec:  " << episodesPerSecond << '\n';
     }
 
     if (config.render) {
