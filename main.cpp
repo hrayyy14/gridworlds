@@ -12,6 +12,7 @@
 #include "reward.h"
 #include "q_learning.h"
 #include "config.h"
+#include "rng.h"
 
 void spawnGoal(State& state, const Game& game, const Config& config) {
     // making sure the goal does not spawn on top of the agent
@@ -79,11 +80,11 @@ void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal, c
     spawnGoal(state, game, config);
 }
 
-void step(State& state, Game& game, Reward& reward, QLearning& qLearning) { // one action and one q learning update
+void step(State& state, Game& game, Reward& reward, QLearning& qLearning, Rng& rng) { // one action and one q learning update
     int oldX {state.agentX};
     int oldY {state.agentY};
 
-    Choice chosenAction { chooseAction(state, game, qLearning) };
+    Choice chosenAction { chooseAction(state, game, qLearning, rng) };
 
     switch (chosenAction) {
         case LEFT:
@@ -155,7 +156,7 @@ int main(int argc, char* argv[]) {
     }
 
     unsigned int seed = config.randomSeed ? static_cast<unsigned int>(time(nullptr)) : static_cast<unsigned int>(config.seed);
-    SetRandomSeed(seed);
+    Rng rng{seed};
 
     std::ofstream csvFile;
     if (!config.benchmark) {
@@ -191,7 +192,7 @@ int main(int argc, char* argv[]) {
     auto startTime {std::chrono::steady_clock::now()};
 
     while (game.trainingEpisodes < config.maxTrainingEpisodes) {
-        step(state, game, reward, qLearning);
+        step(state, game, reward, qLearning, rng);
 
         bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
         bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
@@ -241,7 +242,7 @@ int main(int argc, char* argv[]) {
     game.steps = 0;
 
     while (game.evaluationEpisodes < config.maxEvaluationEpisodes) {
-        step(state, game, reward, qLearning);
+        step(state, game, reward, qLearning, rng);
 
         bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
         bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
@@ -275,7 +276,7 @@ int main(int argc, char* argv[]) {
             timer += GetFrameTime();
 
             if (timer >= speed) {
-                step(state, game, reward, qLearning);
+                step(state, game, reward, qLearning, rng);
                 timer -= speed;
             }
 

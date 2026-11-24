@@ -3,6 +3,7 @@
 #include "state.h"
 #include "choice.h"
 #include "config.h"
+#include "rng.h"
 
 struct QLearning {
     float qTable[Game::gridSize][Game::gridSize][4] {}; // for example 10 x 10 grid and 4 states (left, right, up, down)
@@ -21,5 +22,5 @@ struct QLearning {
     {}
 };
 
-Choice chooseAction(const State& state, const Game& game, const QLearning& qLearning);
+Choice chooseAction(const State& state, const Game& game, const QLearning& qLearning, Rng& rng);
 void updateQTable(const State& state, const Game& game, QLearning& qLearning, int oldX, int oldY, Choice chosenAction);

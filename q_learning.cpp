@@ -1,7 +1,6 @@
-#include "raylib.h"
 #include "q_learning.h"
 
-Choice chooseAction(const State& state, const Game& game, const QLearning& qLearning) {
+Choice chooseAction(const State& state, const Game& game, const QLearning& qLearning, Rng& rng) {
     int bestAction {-1};
     float bestQ {};
     int tieCount {1};
@@ -21,20 +20,20 @@ Choice chooseAction(const State& state, const Game& game, const QLearning& qLear
         else if (currentQ == bestQ) {
             ++tieCount;
 
-            if (GetRandomValue(1, tieCount) == 1) {
+            if (rng.nextInt(1, tieCount) == 1) {
                 bestAction = i;
             }
         }
     }
 
     // choose between exploration and exploitation
-    int randomNumber { GetRandomValue(0, 99) };
+    int randomNumber { rng.nextInt(0, 99) };
     Choice chosenAction {};
 
     if ((game.mode == Mode::TRAINING) && (randomNumber < qLearning.epsilon * 100)) {
         // EXPLORATION
         do {
-            chosenAction = static_cast<Choice>(GetRandomValue(LEFT, DOWN)); // exploration only selects legal moves
+            chosenAction = static_cast<Choice>(rng.nextInt(LEFT, DOWN)); // exploration only selects legal moves
         } while (!isValidAction(state, game, chosenAction));
     } else {
         // EXPLOITATION
