@@ -18,7 +18,7 @@ struct Game {
     int trainingEpisodes {};
     int evaluationEpisodes {};
 
-    int totalSteps{};
+    long long totalSteps{};
     int totalRewards{};
     int evaluationTotalSteps {};
     int evaluationSuccesses {};

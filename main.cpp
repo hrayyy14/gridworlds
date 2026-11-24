@@ -44,7 +44,7 @@ void updateStats(Game& game, bool reachedGoal) {
 }
 
 void printProgress(const Game& game, const Config& config) {
-    if (game.mode == Mode::TRAINING && game.trainingEpisodes % 500 == 0) {
+    if (!config.benchmark && game.mode == Mode::TRAINING && game.trainingEpisodes % 500 == 0) {
         std::cout << "Progress: " << game.trainingEpisodes << " / " << config.maxTrainingEpisodes << '\n';
     }
 }
@@ -131,7 +131,7 @@ void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearni
         }
     }
 
-    if (game.mode == Mode::TRAINING) {
+    if (game.mode == Mode::TRAINING && !config.benchmark) {
         csvFile << game.trainingEpisodes + 1 << ',' << game.steps << ',' << reward.episodeReward << ',' << reachedGoal << '\n';
     }
 
@@ -144,22 +144,27 @@ void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearni
 int main(int argc, char* argv[]) {
     Config config{};
 
+    for (int i{1}; i < argc; ++i) {
+        std::string arg{argv[i]};
+        if (arg == "--render") {
+            config.render = true;
+        } else if (arg == "--benchmark") {
+            config.benchmark = true;
+            config.maxTrainingEpisodes = 5'000'000;
+        }
+    }
+
     unsigned int seed = config.randomSeed ? static_cast<unsigned int>(time(nullptr)) : static_cast<unsigned int>(config.seed);
     SetRandomSeed(seed);
 
-    std::ofstream csvFile("training.csv");
-    //check
-    if (!csvFile.is_open()) {
-        std::cerr << "Error: could not open file for writing.\n";
-        return 1;
-    }
-    //write
-    csvFile << "episode,steps,reward,success\n";
-
-    for (int i{1}; i < argc; ++i) {
-        if (std::string(argv[i]) == "--render") {
-            config.render = true;
+    std::ofstream csvFile;
+    if (!config.benchmark) {
+        csvFile.open("training.csv");
+        if (!csvFile.is_open()) {
+            std::cerr << "Error: could not open file for writing.\n";
+            return 1;
         }
+        csvFile << "episode,steps,reward,success\n";
     }
 
     State state{};
@@ -211,8 +216,8 @@ int main(int argc, char* argv[]) {
           << "Total episodes: " << game.trainingEpisodes << '\n'
           << "Total steps:    " << game.totalSteps << '\n'
           << "Best steps:    " << game.bestSteps << '\n'
-          << "Duration:      " << std::fixed << std::setprecision(2)
-          << duration << " s\n";
+          << "Duration:      " << std::fixed << std::setprecision(4)
+          << duration << " s\n" << std::setprecision(2);
 
     // more formatting ...
     if (stepsPerSecond >= 1'000'000) {

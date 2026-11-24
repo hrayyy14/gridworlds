@@ -10,9 +10,10 @@ struct Config {
 
     const int seed{14};
     bool randomSeed{false}; // if true --> generates a random seed each run ; false --> always use 14 (or seed var value)
-    const int maxTrainingEpisodes{2000};
+    int maxTrainingEpisodes{2000};
     const int maxEvaluationEpisodes{100};
     bool render{false};
+    bool benchmark{false};
 
     // hyperparams
     const float alpha {0.1f};  // learning rate
