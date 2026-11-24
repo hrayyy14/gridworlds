@@ -18,7 +18,7 @@ The goal is to learn reinforcement learning, C++ systems programming, and perfor
 Requires a C++ compiler and raylib.
 
 ```bash
-g++ -O2 main.cpp game.cpp q_learning.cpp -o grid $(pkg-config --cflags --libs raylib)
+g++ -O2 main.cpp q_learning.cpp -o grid $(pkg-config --cflags --libs raylib)
 ```
 
 ## Run
