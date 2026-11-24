@@ -229,6 +229,34 @@ int main(int argc, char* argv[]) {
         std::cout << "Episodes/sec:  " << episodesPerSecond << '\n';
     }
 
+    // headless evaluation (no UI)
+    game.mode = Mode::EVALUATION;
+    state.agentX = config.startX;
+    state.agentY = config.startY;
+    game.steps = 0;
+
+    while (game.evaluationEpisodes < config.maxEvaluationEpisodes) {
+        step(state, game, reward, qLearning);
+
+        bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
+        bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
+
+        if (reachedGoal || truncated) {
+            finishEpisodes(state, game, reward, qLearning, reachedGoal, config, csvFile);
+        }
+    }
+
+    double evalSuccessRate = game.evaluationEpisodes > 0
+        ? (100.0 * game.evaluationSuccesses / game.evaluationEpisodes) : 0.0;
+    double evalAvgSteps = game.evaluationEpisodes > 0
+        ? (static_cast<double>(game.evaluationTotalSteps) / game.evaluationEpisodes) : 0.0;
+
+    std::cout << "\nEvaluation (headless)\n"
+              << "------------------------------\n"
+              << "Episodes:     " << game.evaluationEpisodes << '\n'
+              << "Success rate: " << evalSuccessRate << "%\n"
+              << "Avg steps:    " << evalAvgSteps << '\n';
+
     if (config.render) {
         game.mode = Mode::EVALUATION;
         state.agentX = 5;
