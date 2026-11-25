@@ -1,6 +1,16 @@
 #include "q_learning.h"
 
 Choice chooseAction(const State& state, const Game& game, const QLearning& qLearning, Rng& rng) {
+    // check exploration FIRST so we skip scanning Q-values when exploring
+    if (game.mode == Mode::TRAINING && rng.nextInt(0, 99) < qLearning.epsilon * 100) {
+        Choice chosenAction{};
+        do {
+            chosenAction = static_cast<Choice>(rng.nextInt(LEFT, DOWN));
+        } while (!isValidAction(state, game, chosenAction));
+        return chosenAction;
+    }
+
+    // EXPLOITATION (or EVALUATION)
     int bestAction {-1};
     float bestQ {};
     int tieCount {1};
@@ -25,21 +35,7 @@ Choice chooseAction(const State& state, const Game& game, const QLearning& qLear
             }
         }
     }
-
-    // choose between exploration and exploitation
-    int randomNumber { rng.nextInt(0, 99) };
-    Choice chosenAction {};
-
-    if ((game.mode == Mode::TRAINING) && (randomNumber < qLearning.epsilon * 100)) {
-        // EXPLORATION
-        do {
-            chosenAction = static_cast<Choice>(rng.nextInt(LEFT, DOWN)); // exploration only selects legal moves
-        } while (!isValidAction(state, game, chosenAction));
-    } else {
-        // EXPLOITATION
-        chosenAction = static_cast<Choice>(bestAction);
-    }
-    return chosenAction;
+    return static_cast<Choice>(bestAction);
 }
 
 void updateQTable(const State& state, const Game& game, QLearning& qLearning, int oldX, int oldY, Choice chosenAction) {
