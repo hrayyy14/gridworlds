@@ -154,8 +154,8 @@ struct WorkerResult {
 };
 // multithreading
 // IMPORTANT!: Each thread runs an independent environment + Q-table (no shared updates):
-// avoids lock/cache-line contention on a tiny 1.6KB Q-table and preserves determinism.
-// Tradeoff: splitting a small episode budget across threads gives each agent fewer episodes to converge.
+// avoids lock/cache-line contention on a tiny 1.6KB Q-table and preserves determinism
+// Tradeoff: splitting a small episode budget across threads gives each agent fewer episodes to converge
 WorkerResult runWorker(const Config& config, unsigned int seed, int episodesToRun) {
     State state{};
     Game game{};
