@@ -4,6 +4,8 @@
 #include <chrono>
 #include <iomanip>
 #include <fstream>
+#include <thread>
+#include <vector>
 
 #include "raylib.h"
 #include "choice.h"
@@ -141,6 +143,63 @@ void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearni
     reward.episodeReward = 0;
 }
 
+// multithreading
+struct WorkerResult {
+    int episodes{};
+    long long totalSteps{};
+    int bestSteps{};
+    int evalEpisodes{};
+    int evalSuccesses{};
+    int evalTotalSteps{};
+};
+// multithreading
+// IMPORTANT!: Each thread runs an independent environment + Q-table (no shared updates):
+// avoids lock/cache-line contention on a tiny 1.6KB Q-table and preserves determinism.
+// Tradeoff: splitting a small episode budget across threads gives each agent fewer episodes to converge.
+WorkerResult runWorker(const Config& config, unsigned int seed, int episodesToRun) {
+    State state{};
+    Game game{};
+    Reward reward{config};
+    QLearning qLearning{config};
+    Rng rng{seed};
+    std::ofstream unusedCsv;
+    Config localConfig{config};
+    localConfig.benchmark = true; // no CSV/stdout inside worker threads
+
+    spawnGoal(state, game, localConfig);
+
+    while (game.trainingEpisodes < episodesToRun) {
+        step(state, game, reward, qLearning, rng);
+        bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
+        bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
+        if (reachedGoal || truncated) {
+            finishEpisodes(state, game, reward, qLearning, reachedGoal, localConfig, unusedCsv);
+        }
+    }
+    // Headless evaluation on this thread's learned Q-table
+    game.mode = Mode::EVALUATION;
+    state.agentX = localConfig.startX;
+    state.agentY = localConfig.startY;
+    game.steps = 0;
+
+    while (game.evaluationEpisodes < localConfig.maxEvaluationEpisodes) {
+        step(state, game, reward, qLearning, rng);
+        bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
+        bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
+        if (reachedGoal || truncated) {
+            finishEpisodes(state, game, reward, qLearning, reachedGoal, localConfig, unusedCsv);
+        }
+    }
+
+    return WorkerResult{
+        game.trainingEpisodes,
+        game.totalSteps,
+        game.bestSteps,
+        game.evaluationEpisodes,
+        game.evaluationSuccesses,
+        game.evaluationTotalSteps
+    };
+}
 
 int main(int argc, char* argv[]) {
     Config config{};
@@ -152,10 +211,83 @@ int main(int argc, char* argv[]) {
         } else if (arg == "--benchmark") {
             config.benchmark = true;
             config.maxTrainingEpisodes = 5'000'000;
+        } else if (arg == "--threads" && i + 1 < argc) {
+            config.threads = std::stoi(argv[++i]);
+        } else if (arg == "--episodes" && i + 1 < argc) {
+            config.maxTrainingEpisodes = std::stoi(argv[++i]);
         }
     }
 
     unsigned int seed = config.randomSeed ? static_cast<unsigned int>(time(nullptr)) : static_cast<unsigned int>(config.seed);
+
+    if (config.threads > 1) {
+        std::cout << "\nGridWorld RL (Multithreaded)\n"
+                    << "------------------------------\n"
+                    << "Threads:  " << config.threads << '\n'
+                    << "Episodes: " << config.maxTrainingEpisodes << '\n'
+                    << "Seed:     " << seed << "\n\n"
+                    << "Training...\n";
+
+        std::vector<std::thread> workers;
+        std::vector<WorkerResult> results(config.threads);
+
+        int baseEpisodes { config.maxTrainingEpisodes / config.threads };
+        int remainder { config.maxTrainingEpisodes % config.threads };
+
+        auto startTime { std::chrono::steady_clock::now() };
+
+        for (int t{0}; t < config.threads; ++t) {
+            int episodesForThread { baseEpisodes + (t < remainder ? 1 : 0) };
+            workers.emplace_back([&, t, episodesForThread]() {
+                results[t] = runWorker(config, seed + static_cast<unsigned int>(t), episodesForThread);
+            });
+        }
+
+        for (auto& w : workers) {
+            w.join();
+        }
+
+        auto endTime { std::chrono::steady_clock::now() };
+        double duration = std::chrono::duration<double>(endTime - startTime).count();
+
+        int totalEpisodes{};
+        long long totalSteps{};
+        int bestSteps{};
+        int totalEvalEpisodes{};
+        int totalEvalSuccesses{};
+        int totalEvalSteps{};
+
+        for (const auto& r : results) {
+            totalEpisodes += r.episodes;
+            totalSteps += r.totalSteps;
+            if (r.bestSteps > 0 && (bestSteps == 0 || r.bestSteps < bestSteps)) {
+                bestSteps = r.bestSteps;
+            }
+            totalEvalEpisodes += r.evalEpisodes;
+            totalEvalSuccesses += r.evalSuccesses;
+            totalEvalSteps += r.evalTotalSteps;
+        }
+
+        double stepsPerSecond = duration > 0.0 ? totalSteps / duration : 0.0;
+        double episodesPerSecond = duration > 0.0 ? totalEpisodes / duration : 0.0;
+
+        std::cout << std::fixed << std::setprecision(2)
+                    << "\nTraining complete\n"
+                    << "------------------------------\n"
+                    << "Total episodes: " << totalEpisodes << '\n'
+                    << "Total steps:    " << totalSteps << '\n'
+                    << "Best steps:     " << bestSteps << '\n'
+                    << "Duration:       " << std::setprecision(4) << duration << " s\n" << std::setprecision(2)
+                    << "Steps/second:   " << stepsPerSecond / 1'000'000 << "M\n"
+                    << "Episodes/sec:   " << episodesPerSecond / 1'000 << "K\n"
+                    << "\nEvaluation (all threads)\n"
+                    << "------------------------------\n"
+                    << "Episodes:       " << totalEvalEpisodes << '\n'
+                    << "Success rate:   " << (100.0 * totalEvalSuccesses / totalEvalEpisodes) << "%\n"
+                    << "Avg steps:      " << (static_cast<double>(totalEvalSteps) / totalEvalEpisodes) << '\n';
+        return 0;
+    }
+
     Rng rng{seed};
 
     std::ofstream csvFile;

@@ -14,6 +14,7 @@ struct Config {
     const int maxEvaluationEpisodes{100};
     bool render{false};
     bool benchmark{false};
+    int threads{1};
 
     // hyperparams
     const float alpha {0.1f};  // learning rate
