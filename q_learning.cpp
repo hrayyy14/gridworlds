@@ -1,4 +1,5 @@
 #include "q_learning.h"
+#include "model.h"
 
 Choice chooseAction(const State& state, const Game& game, const QLearning& qLearning, Rng& rng) {
     // check exploration FIRST so we skip scanning Q-values when exploring
@@ -38,36 +39,36 @@ Choice chooseAction(const State& state, const Game& game, const QLearning& qLear
     return static_cast<Choice>(bestAction);
 }
 
-void updateQTable(const State& state, const Game& game, QLearning& qLearning, int oldX, int oldY, Choice chosenAction) {
-    float maxnextQ {};
-    bool foundValidAction {false};
+void updateQTable(QLearning& qLearning, int oldX, int oldY, Choice chosenAction, int nextX, int nextY, int stepReward, bool reachedGoal) {
+    float maxNextQ {};
 
-    for (int i{0}; i < 4; ++i) { // 4 because we have 4 actions {0, 1, 2, 3}
-        if (!isValidAction(state, game, static_cast<Choice>(i))) {
-            continue;
+    if (!reachedGoal) {
+        bool foundValidAction {false};
+        for (int i{0}; i < 4; ++i) {
+            if (!isValidAction(nextX, nextY, static_cast<Choice>(i))) {
+                continue;
+            }
+            float currentQ {qLearning.qTable[nextX][nextY][i]};
+            if (!foundValidAction || currentQ > maxNextQ) {
+                maxNextQ = currentQ;
+                foundValidAction = true;
+            }
         }
-
-        float currentQ {qLearning.qTable[state.agentX][state.agentY][i]};
-
-        if (!foundValidAction || currentQ > maxnextQ) {
-            maxnextQ = currentQ;
-            foundValidAction = true;
-        }
-    }
-
-    bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
-    int currentReward {-1};
-
-    if (reachedGoal) {
-        currentReward = 9; // -1 +10
-        maxnextQ = 0.0f;
     }
 
     float oldQ {qLearning.qTable[oldX][oldY][chosenAction]};
+    // BELLMAN EQUATION
+    qLearning.qTable[oldX][oldY][chosenAction] = oldQ + qLearning.alpha * (stepReward + (qLearning.gamma * maxNextQ) - oldQ);
+}
 
-    // BELLMAN EQUATION 
-    if (game.mode == Mode::TRAINING) {
-        oldQ = oldQ + qLearning.alpha * (currentReward + (qLearning.gamma * maxnextQ) - oldQ);
-        qLearning.qTable[oldX][oldY][chosenAction] = oldQ;
+void plan(QLearning& qLearning, const EnvModel& model, Rng& rng, int planningSteps) {
+    if (model.visitedCount == 0) {
+        return;
+    }
+
+    for (int p{}; p < planningSteps; ++p) {
+        StateAction sa {model.sampleRandom(rng)};
+        const Transition& t { model.table[sa.x][sa.y][sa.action] };
+        updateQTable(qLearning, sa.x, sa.y, sa.action, t.nextX, t.nextY, t.reward, t.reachedGoal);
     }
 }

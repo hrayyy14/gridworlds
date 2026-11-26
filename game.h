@@ -30,14 +30,17 @@ struct Game {
     Mode mode{Mode::TRAINING};
 };
 
-bool isValidAction(const State& state, const Game& game, Choice action);
-
-inline bool isValidAction(const State& state, const Game& game, Choice action) {
+inline bool isValidAction(int x, int y, Choice action) {
     switch (action) {
-        case LEFT:  return state.agentX > 0;
-        case RIGHT: return state.agentX < game.gridSize - 1;
-        case UP:    return state.agentY > 0;
-        case DOWN:  return state.agentY < game.gridSize - 1;
+        case LEFT:  return x > 0;
+        case RIGHT: return x < Game::gridSize - 1;
+        case UP:    return y > 0;
+        case DOWN:  return y < Game::gridSize - 1;
     }
     return false;
+}
+
+inline bool isValidAction(const State& state, const Game& game, Choice action) {
+    (void)game;
+    return isValidAction(state.agentX, state.agentY, action);
 }

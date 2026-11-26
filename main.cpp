@@ -15,6 +15,7 @@
 #include "q_learning.h"
 #include "config.h"
 #include "rng.h"
+#include "model.h"
 
 void spawnGoal(State& state, const Game& game, const Config& config) {
     // making sure the goal does not spawn on top of the agent
@@ -82,7 +83,7 @@ void respawn(State& state, Game& game, const Reward& reward, bool reachedGoal, c
     spawnGoal(state, game, config);
 }
 
-void step(State& state, Game& game, Reward& reward, QLearning& qLearning, Rng& rng) { // one action and one q learning update
+void step(State& state, Game& game, Reward& reward, QLearning& qLearning, Rng& rng, EnvModel& model, const Config& config) { // one action and one q learning update
     int oldX {state.agentX};
     int oldY {state.agentY};
 
@@ -111,10 +112,19 @@ void step(State& state, Game& game, Reward& reward, QLearning& qLearning, Rng& r
             break;
     }
 
-    updateQTable(state, game, qLearning, oldX, oldY, chosenAction);
-
+    if (game.mode == Mode::TRAINING) {
+        bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
+        int stepReward {reward.stepPenalty + (reachedGoal ? reward.goalReward : 0)};
+        // Direct RL update
+        updateQTable(qLearning, oldX, oldY, chosenAction, state.agentX, state.agentY, stepReward, reachedGoal);
+        // model learning and planning (Dyna Q)
+        if (config.planningSteps > 0) {
+            model.record(oldX, oldY, chosenAction, state.agentX, state.agentY, stepReward, reachedGoal);
+            plan(qLearning, model, rng, config.planningSteps);
+        }
+    }
     ++game.steps;
-    reward.episodeReward +=  reward.stepPenalty;
+    reward.episodeReward += reward.stepPenalty;
 }
 
 void finishEpisodes(State& state, Game& game, Reward& reward, QLearning& qLearning, bool reachedGoal, const Config& config, std::ofstream& csvFile) { // handles anything that happens when an episode ends
@@ -158,6 +168,7 @@ struct WorkerResult {
 // Tradeoff: splitting a small episode budget across threads gives each agent fewer episodes to converge
 WorkerResult runWorker(const Config& config, unsigned int seed, int episodesToRun) {
     State state{};
+    EnvModel model{};
     Game game{};
     Reward reward{config};
     QLearning qLearning{config};
@@ -169,7 +180,7 @@ WorkerResult runWorker(const Config& config, unsigned int seed, int episodesToRu
     spawnGoal(state, game, localConfig);
 
     while (game.trainingEpisodes < episodesToRun) {
-        step(state, game, reward, qLearning, rng);
+        step(state, game, reward, qLearning, rng, model, config);
         bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
         bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
         if (reachedGoal || truncated) {
@@ -183,7 +194,7 @@ WorkerResult runWorker(const Config& config, unsigned int seed, int episodesToRu
     game.steps = 0;
 
     while (game.evaluationEpisodes < localConfig.maxEvaluationEpisodes) {
-        step(state, game, reward, qLearning, rng);
+        step(state, game, reward, qLearning, rng, model, config);
         bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
         bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
         if (reachedGoal || truncated) {
@@ -203,6 +214,7 @@ WorkerResult runWorker(const Config& config, unsigned int seed, int episodesToRu
 
 int main(int argc, char* argv[]) {
     Config config{};
+    EnvModel model{};
 
     for (int i{1}; i < argc; ++i) {
         std::string arg{argv[i]};
@@ -324,7 +336,7 @@ int main(int argc, char* argv[]) {
     auto startTime {std::chrono::steady_clock::now()};
 
     while (game.trainingEpisodes < config.maxTrainingEpisodes) {
-        step(state, game, reward, qLearning, rng);
+        step(state, game, reward, qLearning, rng, model, config);
 
         bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
         bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
@@ -374,7 +386,7 @@ int main(int argc, char* argv[]) {
     game.steps = 0;
 
     while (game.evaluationEpisodes < config.maxEvaluationEpisodes) {
-        step(state, game, reward, qLearning, rng);
+        step(state, game, reward, qLearning, rng, model, config);
 
         bool reachedGoal { state.agentX == state.goalX && state.agentY == state.goalY };
         bool truncated { game.steps >= Game::maxSteps && !reachedGoal };
@@ -408,7 +420,7 @@ int main(int argc, char* argv[]) {
             timer += GetFrameTime();
 
             if (timer >= speed) {
-                step(state, game, reward, qLearning, rng);
+                step(state, game, reward, qLearning, rng, model, config);
                 timer -= speed;
             }
 

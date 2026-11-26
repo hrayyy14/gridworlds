@@ -22,4 +22,6 @@ struct Config {
     const float epsilon {1.0f}; // start with 100% exploration
     const float epsilonDecay {0.9995f};
     const float epsilonMin {0.05f}; // minimum 5% exploration
+
+    int planningSteps{10}; // 0 = plain Q-learning, >0 = Dyna-Q
 };
